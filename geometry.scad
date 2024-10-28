@@ -1585,8 +1585,8 @@ function polygon_normal(poly) =
 //   b=30;
 //   ofs = 17;
 //   curve = [for(theta=[0:10:140])  [a * theta/360*2*PI - b*sin(theta), a-b*cos(theta)-20]];
-//   path = deduplicate(concat( reverse(offset(curve,r=ofs)),
-//                  xflip(offset(curve,r=ofs)),
+//   path = deduplicate(concat( reverse(offset(curve,r=ofs,closed=false)),
+//                  xflip(offset(curve,r=ofs,closed=false)),
 //                  xflip(reverse(curve)),
 //                  curve
 //                ));
@@ -1612,8 +1612,8 @@ function polygon_normal(poly) =
 //   b=30*2/3;
 //   ofs = 17*2/3;
 //   curve = [for(theta=[0:10:140])  [a * theta/360*2*PI - b*sin(theta), a-b*cos(theta)]];
-//   path = deduplicate(concat( reverse(offset(curve,r=ofs)),
-//                  xflip(offset(curve,r=ofs)),
+//   path = deduplicate(concat( reverse(offset(curve,r=ofs,closed=false)),
+//                  xflip(offset(curve,r=ofs,closed=false)),
 //                  xflip(reverse(curve)),
 //                  curve
 //                ));
@@ -1628,8 +1628,8 @@ function polygon_normal(poly) =
 //   b=30*2/3;
 //   ofs = 17*2/3;
 //   curve = [for(theta=[0:10:140])  [a * theta/360*2*PI - b*sin(theta), a-b*cos(theta)]];
-//   path = deduplicate(concat( reverse(offset(curve,r=ofs)),
-//                  xflip(offset(curve,r=ofs)),
+//   path = deduplicate(concat( reverse(offset(curve,r=ofs,closed=false)),
+//                  xflip(offset(curve,r=ofs,closed=false)),
 //                  xflip(reverse(curve)),
 //                  curve
 //                ));
@@ -1711,7 +1711,7 @@ function point_in_polygon(point, poly, nonzero=false, eps=EPSILON) =
 // Description:
 //   Takes a possibly bounded line, and a 2D or 3D planar polygon, and finds their intersection.  Note the polygon is
 //   treated as its boundary and interior, so the intersection may include both points and line segments.  
-//   If the line does not intersect the polygon returns `undef`.  
+//   If the line does not intersect the polygon then returns `undef`.  
 //   In 3D if the line is not on the plane of the polygon but intersects it then you get a single intersection point.
 //   Otherwise the polygon and line are in the same plane, or when your input is 2D, you will get a list of segments and 
 //   single point lists.  Use `is_vector` to distinguish these two cases.
@@ -2339,8 +2339,9 @@ function ___is_polygon_in_list(poly, polys, i) =
 
 // Function: hull()
 // Synopsis: Convex hull of a list of 2d or 3d points.
+// SynTags: Ext
 // Topics: Geometry, Hulling
-// See Also: hull(), hull_points(), hull2d_path(), hull3d_faces()
+// See Also: hull_points(), hull2d_path(), hull3d_faces()
 // Usage:
 //   face_list_or_index_list = hull(points);
 // Description:

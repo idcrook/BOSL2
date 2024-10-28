@@ -2,6 +2,12 @@ DocsDirectory: BOSL2.wiki/
 TargetProfile: githubwiki
 ProjectName: The Belfry OpenScad Library, v2. (BOSL2)
 GenerateDocs: Files, TOC, Index, Topics, CheatSheet, Sidebar
+SidebarHeader:
+  ## Indices
+  .
+SidebarMiddle:
+  [Tutorials](Tutorials)  
+SidebarFooter:
 UsePNGAnimations: Yes
 IgnoreFiles:
   affine.scad
@@ -23,7 +29,7 @@ PrioritizeFiles:
   distributors.scad
   color.scad
   partitions.scad
-  mutators.scad
+  miscellaneous.scad
   paths.scad
   regions.scad
   skin.scad
@@ -63,11 +69,12 @@ PrioritizeFiles:
   walls.scad
   wiring.scad
 DefineHeader(BulletList): Side Effects
-DefineHeader(Table;Headers=Anchor Name|Position): Extra Anchors
+DefineHeader(Table;Headers=Anchor Name|Position): Named Anchors
 DefineHeader(Table;Headers=Anchor Type|What it is): Anchor Types
 DefineHeader(Table;Headers=Name|Definition): Terminology
 DefineHeader(BulletList): Requirements
 DefineSynTags:
+  Ext = Extends the OpenScad keyword of the same name.
   Geom = Can return geometry.
   Mat = Can return a transformation matrix.
   MatList = Can return a list of transformation matrices.

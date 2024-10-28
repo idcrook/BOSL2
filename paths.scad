@@ -134,7 +134,8 @@ function _path_select(path, s1, u1, s2, u2, closed=false) =
 // SynTags: Path
 // Topics: Paths, Regions
 // Description:
-//   Takes a path and removes unnecessary sequential collinear points.
+//   Takes a path and removes unnecessary sequential collinear points.  Note that when `closed=true` either of the path
+//   endpoints may be removed.  
 // Usage:
 //   path_merge_collinear(path, [eps])
 // Arguments:
@@ -146,17 +147,15 @@ function path_merge_collinear(path, closed, eps=EPSILON) =
     let(closed=default(closed,false))
     assert(is_bool(closed))
     assert( is_path(path), "Invalid path in path_merge_collinear." )
-    assert( is_undef(eps) || (is_finite(eps) && (eps>=0) ), "Invalid tolerance." )    
+    assert( is_undef(eps) || (is_finite(eps) && (eps>=0) ), "Invalid tolerance." )
     len(path)<=2 ? path :
-    let(
-        indices = [
-            0,
-            for (i=[1:1:len(path)-(closed?1:2)]) 
-                if (!is_collinear(path[i-1], path[i], select(path,i+1), eps=eps)) i, 
-            if (!closed) len(path)-1 
-        ]
-    ) [for (i=indices) path[i]];
-
+    let(path = deduplicate(path, closed=closed))
+    [
+      if(!closed) path[0],
+      for(triple=triplet(path,wrap=closed))
+        if (!is_collinear(triple,eps=eps)) triple[1],
+      if(!closed) last(path)
+    ];
 
 
 // Section: Path length calculation
@@ -280,7 +279,7 @@ function _path_self_intersections(path, closed=true, eps=EPSILON) =
             // [a1,a2]. The variable signals is zero when abs(vals[j]-ref) is less than
             // eps and the sign of vals[j]-ref otherwise.  
           signals = [for(j=[i+2:1:plen-(i==0 && closed? 2: 1)]) 
-                        abs(vals[j]-ref) <  eps ? 0 : sign(vals[j]-ref) ] 
+                        abs(vals[j]-ref) <  eps ? 0 : sign(vals[j]-ref) ]
         )
         if(max(signals)>=0 && min(signals)<=0 ) // some remaining edge intersects line [a1,a2]
         for(j=[i+2:1:plen-(i==0 && closed? 3: 2)])
@@ -581,6 +580,9 @@ function is_path_simple(path, closed, eps=EPSILON) =
     let(closed=default(closed,false))
     assert(is_path(path, 2),"Must give a 2D path")
     assert(is_bool(closed))
+    let(
+        path = deduplicate(path,closed=closed,eps=eps)
+    )
     // check for path reversals
     [for(i=[0:1:len(path)-(closed?2:3)])
          let(v1=path[i+1]-path[i],
@@ -798,8 +800,8 @@ function path_cut(path,cutdist,closed) =
   let(closed=default(closed,false))
   assert(is_bool(closed))
   assert(is_vector(cutdist))
-  assert(last(cutdist)<path_length(path,closed=closed),"Cut distances must be smaller than the path length")
-  assert(cutdist[0]>0, "Cut distances must be strictly positive")
+  assert(last(cutdist)<path_length(path,closed=closed)-EPSILON,"Cut distances must be smaller than the path length")
+  assert(cutdist[0]>EPSILON, "Cut distances must be strictly positive")
   let(
       cutlist = path_cut_points(path,cutdist,closed=closed)
   )

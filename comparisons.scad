@@ -235,7 +235,7 @@ function are_ends_equal(list, eps=EPSILON) =
 
 
 // Function: is_increasing()
-// Synopsis: Returns true if exery item in a list is greater than the previous item. 
+// Synopsis: Returns true if every item in a list is greater than the previous item. 
 // Topics: Comparisons, List Handling
 // See Also: max_index(), min_index(), is_increasing(), is_decreasing()
 // Usage:
@@ -897,10 +897,10 @@ function group_sort(list, idx) =
 // Description:
 //   Given a list of integer group numbers, and an equal-length list of values,
 //   returns a list of groups with the values sorted into the corresponding groups.
-//   Ie: if you have a groups index list of [2,3,2] and values of ["A","B","C"], then
-//   the values "A" and "C" will be put in group 2, and "B" will be in group 3.
+//   Ie: if you have a groups index list of `[2,3,2]` and values of `["A","B","C"]`, then
+//   the values `"A"` and `"C"` will be put in group 2, and `"B"` will be in group 3.
 //   Groups that have no values grouped into them will be an empty list.  So the
-//   above would return [[], [], ["A","C"], ["B"]]
+//   above would return `[[], [], ["A","C"], ["B"]]`
 // Arguments:
 //   groups = A list of integer group index numbers.
 //   values = A list of values to sort into groups.

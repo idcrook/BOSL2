@@ -9,7 +9,7 @@
 //////////////////////////////////////////////////////////////////////
 
 
-BOSL_VERSION = [2,0,659];
+BOSL_VERSION = [2,0,716];
 
 
 // Section: BOSL Library Version Functions
@@ -69,7 +69,7 @@ module bosl_required(version) {
         version_cmp(bosl_version(), version) >= 0,
         str(
             "BOSL ", bosl_version_str(), " is installed, but BOSL ",
-            version_to_str(version), " or better is required."  
+            version_to_str(version), " or better is required."
         )
     );
 }

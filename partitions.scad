@@ -95,10 +95,10 @@ function half_of(p, v=UP, cp) =
       assert(is_vector(v,2) || (is_vector(v,3) && v.z==0),"Must give 2-vector")
       assert(!all_zero(v), "Vector v must be nonzero")
       let(
-          bounds = pointlist_bounds(move(-cp,p)),
-          L = 2*max(flatten(bounds)),
-          n = unit(v),
-          u = [-n.y,n.x],
+          v=unit(v), 
+          bounds = pointlist_bounds(is_region(p)?flatten(p):p),
+          L = 2*max(norm(bounds[0]-cp), norm(bounds[1]-cp)),
+          u = [-v.y,v.x],
           box = [cp+u*L, cp+(v+u)*L, cp+(v-u)*L, cp-u*L]
       )
       intersection(box,p)
@@ -437,7 +437,7 @@ function _partition_cutpath(l, h, cutsize, cutpath, gap) =
 //   Creates a mask that you can use to difference or intersect with an object to remove half of it,
 //   leaving behind a side designed to allow assembly of the sub-parts.
 // Arguments:
-//   l = The length of the cut axis.
+//   l = The length of the cut axis.  
 //   w = The width of the part to be masked, back from the cut plane.
 //   h = The height of the part to be masked.
 //   cutsize = The width of the cut pattern to be used.
@@ -487,16 +487,15 @@ module partition_mask(l=100, w=100, h=100, cutsize=10, cutpath="jigsaw", gap=0, 
 // Topics: Partitions, Masking, Paths
 // See Also: partition_mask(), partition()
 // Usage:
-//   partition_cut_mask(l, w, h, [cutsize], [cutpath], [gap], [inverse], [$slop=], [anchor=], [spin=], [orient=]) [ATTACHMENTS];
+//   partition_cut_mask(l, [cutsize], [cutpath], [gap], [inverse], [$slop=], [anchor=], [spin=], [orient=]) [ATTACHMENTS];
 // Description:
 //   Creates a mask that you can use to difference with an object to cut it into two sub-parts that can be assembled.
 //   The `$slop` value is important to get the proper fit and should probably be smaller than 0.2.  The examples below
 //   use larger values to make the mask easier to see.  
 // Arguments:
 //   l = The length of the cut axis.
-//   w = The width of the part to be masked, back from the cut plane.
 //   h = The height of the part to be masked.
-//   cutsize = The width of the cut pattern to be used.
+//   cutsize = The width of the cut pattern to be used.  Default: 10
 //   cutpath = The cutpath to use.  Standard named paths are "flat", "sawtooth", "sinewave", "comb", "finger", "dovetail", "hammerhead", and "jigsaw".  Alternatively, you can give a cutpath as a 2D path, where X is between 0 and 1, and Y is between -0.5 and 0.5.  Default: "jigsaw"
 //   gap = Empty gaps between cutpath iterations.  Default: 0
 //   spin = Rotate this many degrees around the Z axis.  See [spin](attachments.scad#subsection-spin).  Default: `0`
@@ -551,6 +550,8 @@ module partition_cut_mask(l=100, h=100, cutsize=10, cutpath="jigsaw", gap=0, anc
 //   partition(spread=12, gap=30, cutpath="dovetail") cylinder(h=50, d=80, center=false);
 //   partition(spread=20, gap=20, cutsize=15, cutpath="dovetail") cylinder(h=50, d=80, center=false);
 //   partition(spread=25, gap=15, cutsize=[20,20], cutpath="dovetail") cylinder(h=50, d=80, center=false);
+// Side Effects:
+//   `$idx` is set to 0 on the back part and 1 on the front part.
 // Examples(2DMed):
 //   partition(cutpath="sawtooth") cylinder(h=50, d=80, center=false);
 //   partition(cutpath="sinewave") cylinder(h=50, d=80, center=false);
@@ -567,12 +568,14 @@ module partition(size=100, spread=10, cutsize=10, cutpath="jigsaw", gap=0, spin=
     rsize = v_abs(rot(spin,p=size));
     vec = rot(spin,p=BACK)*spread/2;
     move(vec) {
+        $idx = 0;
         intersection() {
             children();
             partition_mask(l=rsize.x, w=rsize.y, h=rsize.z, cutsize=cutsize, cutpath=cutpath, gap=gap, spin=spin);
         }
     }
     move(-vec) {
+        $idx = 1;
         intersection() {
             children();
             partition_mask(l=rsize.x, w=rsize.y, h=rsize.z, cutsize=cutsize, cutpath=cutpath, gap=gap, inverse=true, spin=spin);

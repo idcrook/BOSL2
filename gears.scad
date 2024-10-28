@@ -118,9 +118,12 @@ function _inherit_gear_thickness(thickness,dflt=10) =
 //     right(8.3) back(74) zrot(87-360/30) zrot(10,cp=[pitchpt,0]) stroke(arc(angle=[0,20],r=10.5),endcaps="arrow2",width=.25);
 //     back(84) right(13) text("pressure angle",size=2.5);
 //   }
+//   stroke(arc(r=pitch_radius(mod=5,teeth=30),angle=[87,87+12]),width=.4,endcaps="arrow2",color="red");
+//   color([1,0,0,1])     back(70)right(-13)zrot(4)text("circular pitch", size=2.5);
 // Continues:
-//   The size of the teeth can be specified as the circular pitch, the distance along the pitch circle
-//   from the start of one tooth to the start of the text tooth.  The circular pitch can be computed as
+//   The size of the teeth can be specified as the *circular pitch*, which is the tooth width, or more precisely,
+//   the distance along the pitch circle from the start of one tooth to the start of the text tooth.
+//   The circular pitch can be computed as
 //   `PI*d/teeth` where `d` is the diameter of the pitch circle and `teeth` is the number of teeth on the gear.
 //   This simply divides up the pitch circle into the specified number of teeth.  However, the customary
 //   way to specify metric gears is using the module, ratio of the diameter of the gear to the number of teeth: `m=d/teeth`.
@@ -196,8 +199,11 @@ function _inherit_gear_thickness(thickness,dflt=10) =
 //   which you compute with {{gear_dist()}}, is a complex calculation that depends on the profile shifts of both meshing gears.  This means that profile shifting
 //   can also be used to fine tune the spacing between gears.  When the gear has many teeth a negative profile shift may
 //   be able to bring the gears slightly closer together, while still avoiding undercutting.
-//   Profile shifting also changes the effective pressure angle of the gear engagement.  
-//   .
+//   Profile shifting also changes the effective pressure angle of the gear engagement.
+// Figure(2D,Med,NoAxes): The green gear is a 7 tooth gear without profile shifting.  In yellow is the same gear, profile shifted.  Note that the teeth too longer narrow at their base.  Also note that the effective root circle has a larger radius, and the teeth are also longer.
+//   spur_gear2d(mod=5, teeth=7);
+//   color("green")spur_gear2d(mod=5, teeth=7, profile_shift=0);
+// Continues:
 //   The minimum number of teeth to avoid undercutting is 17 for a pressure angle of 20, but it is 32 for a pressure
 //   angle of 14.5 degrees.  It can be computed as `2/(sin(alpha))^2` where `alpha` is the pressure angle.
 //   By default, the gear modules produce corrected gears.  You can override this by specifying the profile shift
@@ -431,7 +437,7 @@ function _inherit_gear_thickness(thickness,dflt=10) =
 //   in fact, the worm can be regarded as a type of helical gear at a very extreme angle, where the teeth wrap
 //   around the gear.  The worm mates with the "worm gear" which is also called the "worm wheel".  The worm gear
 //   resembles a helical gear at a very slight angle.
-// Figure(3D,Med,NoAxes,VPT=[38.1941,-7.67869,7.95996],VPR=[56.4,0,25],VPD=361.364):  Worm drive assembly, with worm on the left and worm gear (worm wheel) on the right.  When the worm turns its screwing action drives the worm gear.  
+// Figure(3D,Med,NoAxes,VPT=[38.1941,-7.67869,7.95996],VPR=[56.4,0,25],VPD=361.364):  Worm drive assembly, with worm on the left and worm gear (worm wheel) on the right.  When the worm turns, its screwing action drives the worm gear.  
 //   starts=2;
 //   ps=0;
 //   dist_ba=0;
@@ -447,6 +453,10 @@ function _inherit_gear_thickness(thickness,dflt=10) =
 //          teeth=30,
 //          worm_diam=44,profile_shift=ps,
 //          worm_starts=starts,backlash=gear_ba);
+//   color("black"){
+//      rot($vpr)left(45)back(25)text3d("worm",size=8);
+//      rot($vpr)right(55)back(27)text3d("worm gear",size=8);  
+//   }
 // Continues:
 //   A close look at the worm gear reveals that it differs significantly from a helical or spur gear.
 //   This gear is an "enveloping" gear, which is designed to follow the curved profile of the worm,
@@ -513,8 +523,8 @@ function _inherit_gear_thickness(thickness,dflt=10) =
 //   Since self-locking is associated with friction, self-locking drives have lower efficiency,
 //   usually less than 50%.  Worm drive efficiency can exceed 90% if self-locking is not required.  One consideration
 //   with self-locking systems is that if the worm gear moves a large mass and the drive is suddenly shut off, the
-//   worm wheel is still trying to move due to inertia, which can create large loads that fracture the worm.
-//   In such cases, the worm cannot be stopped abruptly but must rotate a little further (called "over travel")
+//   worm gear is still trying to move due to inertia, which can create large loads that fracture the worm.
+//   In such cases, the worm cannot be stopped abruptly but must be allowed to rotate a little further (called "over travel")
 //   after switching off the drive.
 // Subsection: Bevel Gears
 //   Bevel gearing is another way of dealing with intersecting gear shafts.  For bevel gears, the teeth centers lie on
@@ -570,7 +580,7 @@ function _inherit_gear_thickness(thickness,dflt=10) =
 //   mate at a 90 degree angle because if it did, its cone could not meet the center of the planar bevel gear.
 //   If you request a larger shaft angle, the teeth of the bevel gear will tilt inward, producing an internal bevel gear.
 //   Gears with this design are rarely used.  The mate of an interior gear is always an exterior gear.  
-// Figure(VPT=[-1.07698,0.67915,-2.25898],VPD=263.435,VPR=[69.7,0,49.3],NoAxes): Internal bevel gear (yellow) mated to an external bevel gear (blue) to achieve a 135 degree shaft angle.  
+// Figure(Med,VPT=[-1.07698,0.67915,-2.25898],VPD=263.435,VPR=[69.7,0,49.3],NoAxes): Internal bevel gear (yellow) mated to an external bevel gear (blue) to achieve a 135 degree shaft angle.  
 //   ang=135;
 //   bevel_gear(mod=3,35,15,ang,spiral=0,cone_backing=false);
 //      down(15)cyl(h=40,d=3,$fn=16,anchor=BOT);
@@ -585,7 +595,7 @@ function _inherit_gear_thickness(thickness,dflt=10) =
 //   the gear resembles a crown.  This type of gear is not the same as a bevel gear with vertical teeth, which would mate
 //   to another bevel gear.  A crown gear mates to a spur gear at a ninety degree angle.  A feature of the crown gear assembly
 //   is that the spur gear can shift along its axis without affecting the mesh.  
-// Figure(2D,Med,NoAxes,VPT=[-2.19006,-1.67419,-4.49379],VPR=[67.6,0,131.9],VPD=113.4): A Crown or Face gear with its mating spur gear in blue.  
+// Figure(Med,NoAxes,VPT=[-2.19006,-1.67419,-4.49379],VPR=[67.6,0,131.9],VPD=113.4): A Crown or Face gear with its mating spur gear in blue.  
 //   crown_gear(mod=1, teeth=32, backing=3, face_width=7);
 //   color("lightblue")
 //   back(pitch_radius(mod=1,teeth=32)+7/2)
@@ -1637,7 +1647,7 @@ module ring_gear2d(
 //   anchor = Translate so anchor point is at origin (0,0,0).  See [anchor](attachments.scad#subsection-anchor).  Default: `CENTER`
 //   spin = Rotate this many degrees around the Z axis after anchor.  See [spin](attachments.scad#subsection-spin).  Default: `0`
 //   orient = Vector to rotate top towards, after spin.  See [orient](attachments.scad#subsection-orient).  Default: `UP`
-// Extra Anchors:
+// Named Anchors:
 //   "root" = At the base of the teeth, at the center of rack.
 //   "root-left" = At the base of the teeth, at the left end of the rack.
 //   "root-right" = At the base of the teeth, at the right end of the rack.
@@ -1906,7 +1916,7 @@ function rack(
 //   rounding = If true, rack tips and valleys are slightly rounded.  Default: true
 //   anchor = Translate so anchor point is at origin (0,0,0).  See [anchor](attachments.scad#subsection-anchor).  Default: `CENTER`
 //   spin = Rotate this many degrees around the Z axis after anchor.  See [spin](attachments.scad#subsection-spin).  Default: `0`
-// Extra Anchors:
+// Named Anchors:
 //   "root" = At the height of the teeth, at the center of rack.
 //   "root-left" = At the height of the teeth, at the left end of the rack.
 //   "root-right" = At the height of the teeth, at the right end of the rack.
@@ -2335,7 +2345,7 @@ module crown_gear(
 //   teeth = Number of teeth on the gear
 //   mate_teeth = Number of teeth on the gear that will mate to this gear
 //   shaft_angle = Angle between the shafts of the two gears.  Default: 90
-//   --
+//   ---
 //   mod = The module of the gear (pitch diameter / teeth)
 //   diam_pitch = The diametral pitch, or number of teeth per inch of pitch diameter.  Note that the diametral pitch is a completely different thing than the pitch diameter.
 //   circ_pitch = The circular pitch, the distance between teeth centers around the pitch circle.
@@ -2357,7 +2367,7 @@ module crown_gear(
 //   anchor = Translate so anchor point is at origin (0,0,0).  See [anchor](attachments.scad#subsection-anchor).  Default: "pitchbase"
 //   spin = Rotate this many degrees around the Z axis after anchor.  See [spin](attachments.scad#subsection-spin).  Default: `0`
 //   orient = Vector to rotate top towards, after spin.  See [orient](attachments.scad#subsection-orient).  Default: `UP`
-// Extra Anchors:
+// Named Anchors:
 //   "pitchbase" = With the base of the pitch cone in the XY plane, centered at the origin.  This is the natural height for the gear, and the default anchor.
 //   "apex" = At the pitch cone apex for the bevel gear.
 //   "flattop" = At the top of the flat top of the bevel gear.
@@ -2392,6 +2402,22 @@ module crown_gear(
 //       shaft_diam=5, slices=12, backing=3, spin=180/t2, cone_backing=false
 //     );
 //   }
+// Example(NoAxes,VPT=[-12.7062,12.914,17.7517],VPR=[71.1,0,35.5],VPD=213.382): Placing bevel gears onto a frame using the `bottom=` parameter to get the correct position, and with holes cut in the frame for the shafts.  
+//   t1=17; t2=29; mod=2; bot=4; wall=2; shaft=5;
+//   r1 = pitch_radius(mod=mod, teeth=t1);
+//   r2 = pitch_radius(mod=mod, teeth=t2);
+//   difference(){
+//     move([0,bot,-bot]){
+//        cuboid([60,40,wall], anchor=TOP+BACK);
+//        down(wall)cuboid([60,wall,70], anchor=BOT+FWD);
+//     }
+//     up(r2) ycyl(d=shaft, l=100);
+//     fwd(r1) zcyl(d=shaft, l=100);
+//   }  
+//   fwd(r1) color("lightblue")
+//     bevel_gear(mod=mod, teeth=t1,mate_teeth=t2, bottom=bot, shaft_diam=shaft, slices=12);
+//   up(r2) color("orange")
+//     bevel_gear(mod=mod, teeth=t2,mate_teeth=t1, bottom=bot, right_handed=true, orient=FWD, shaft_diam=shaft, slices=12);
 // Example(NoAxes,VPT=[24.4306,-9.20912,-29.3331],VPD=292.705,VPR=[71.8,0,62.5]): Bevel gears at a non right angle, positioned by aligning the pitch cone apexes.  
 //   ang=65;
 //   bevel_gear(mod=3,35,15,ang,spiral=0,backing=5,anchor="apex")   
@@ -2400,13 +2426,38 @@ module crown_gear(
 //   xrot(ang)
 //     bevel_gear(mod=3,15,35,ang,spiral=0,right_handed=true,anchor="apex")
 //       cyl(h=65,d=3,$fn=16,anchor=BOT);
-// Example(VPT=[6.39483,26.2195,8.93229],VPD=192.044,VPR=[76.7,0,63.3],NoAxes): At this extreme 135 degree angle the yellow gear has internal teeth.  This is a rare configuration.  
+// Example(NoAxes,VPT=[-6.28233,3.60349,15.6594],VPR=[71.1,0,52.1],VPD=213.382): Non-right angled bevel gear pair positioned in a frame, with holes cut in the frame for the shafts.  Note that when rotating a gear to its appropriate angle, you must rotate around an axis tangent to the gear's pitch base, **not** the gear center.  This is accomplished by shifting the gear by its pitch radius before applying the rotation.    
+//   include <BOSL2/rounding.scad>
+//   angle = 60;
+//   t1=17; t2=29; mod=2; bot=4; wall=2; shaft=5;
+//   r1 = pitch_radius(mod=mod, teeth=t1);
+//   r2 = pitch_radius(mod=mod, teeth=t2);
+//   difference(){
+//     move(bot*[0, 1/tan(90-angle/2),-1])
+//       rot(90)xrot(90)
+//       linear_extrude(height=60,center=true,convexity=5)
+//       offset_stroke([[-40,0],[0,0], polar_to_xy(60,angle)], width=[-wall,0]);
+//     move(r2*[0,cos(angle),sin(angle)])
+//       xrot(angle)zcyl(d=shaft, l=50);
+//     fwd(r1)
+//       zcyl(d=shaft, l=50);
+//   }
+//   fwd(r1) color("lightblue")
+//     bevel_gear(mod=mod, teeth=t1,mate_teeth=t2, bottom=bot, shaft_angle=angle, shaft_diam=shaft, slices=12);
+//   xrot(angle) back(r2) color("orange")
+//     bevel_gear(mod=mod, teeth=t2,mate_teeth=t1, bottom=bot, shaft_angle=angle, shaft_diam=shaft, right_handed=true, slices=12);
+// Example(NoAxes,VPT=[-0.482968,-0.51139,-4.48142],VPR=[69.7,0,40.9],VPD=263.435): At this extreme 135 degree angle the yellow gear has internal teeth.  This is a rare configuration.  
 //   ang=135;
 //   bevel_gear(mod=3,35,15,ang);   
 //   color("lightblue")
 //     back(pitch_radius(mod=3,teeth=35)+pitch_radius(mod=3,teeth=15))
 //     xrot(ang,cp=[0,-pitch_radius(mod=3,teeth=15),0])
-//         bevel_gear(mod=3,15,35,ang,right_handed=true);       
+//         bevel_gear(mod=3,15,35,ang,right_handed=true);
+
+echo(VPT=$vpt,VPR=$vpr,VPD=$vpd);
+
+
+
 function bevel_gear(
     teeth,
     mate_teeth,
@@ -3476,12 +3527,12 @@ function _gear_tooth_profile(
 //   mod = The module of the gear, pitch diameter divided by tooth count. 
 //   diam_pitch = The diametral pitch, or number of teeth per inch of pitch diameter.  Note that the diametral pitch is a completely different thing than the pitch diameter.
 //   circ_pitch = distance between teeth centers around the pitch circle.
-//   ring_carrier = set ring/carrier ratio to this value in a ring driven system, must be between 1 and 2
-//   carrier_ring = set carrier/ring ratio to this value in a carrier driven system, must be between 1/2 and 1
-//   sun_carrier = set sun/carrier ratio to this value in a sun driven system, must be larger than 2
-//   carrier_sun = set carrier/sun ratio to this value in a carrier driven system, must be smaller than 1/2
-//   ring_sun = set ring/sun ratio to this value in a ring driven system, must have absolute value larger than 1
-//   sun_ring = set sun/ring ratio to this value in a sun driven system, must have absolute value smaller than 1
+//   ring_carrier = set ring/carrier transmission ratio to this value in a ring driven system, must be between 1 and 2
+//   carrier_ring = set carrier/ring transmission ratio to this value in a carrier driven system, must be between 1/2 and 1
+//   sun_carrier = set sun/carrier transmission ratio to this value in a sun driven system, must be larger than 2
+//   carrier_sun = set carrier/sun transmission ratio to this value in a carrier driven system, must be smaller than 1/2
+//   ring_sun = set ring/sun transmission ratio to this value in a ring driven system, must have absolute value smaller than 1
+//   sun_ring = set sun/ring transmission ratio to this value in a sun driven system, must have absolute value larger than 1
 //   helical = create gears with specified helical angle.  Default: 0
 //   gear_spin = rotate the driven gear by this number of degrees.  Default:0
 // Example(2D,NoAxes,Anim,Frames=90,FrameMS=30,VPT=[-0.875705,-0.110537,-66.3877],VPR=[0,0,0],VPD=102,Med): In this example we request a ring/carrier ratio of 1.341 and the system produced has a ratio of 4/3.  The sun is fixed, the input is carried by the ring, and the carrier, shown as the blue triangle, is the output, rotating approximately in accordance with the requested ratio.  
@@ -3492,7 +3543,7 @@ function _gear_tooth_profile(
 //     spur_gear2d(mod=mod, teeth=gear_data[0][1], profile_shift=gear_data[0][2], gear_spin=gear_data[0][3]);  //sun
 //   color("red")move_copies(gear_data[2][4])
 //     spur_gear2d(mod=mod, teeth=gear_data[2][1], profile_shift=gear_data[2][2], gear_spin=gear_data[2][3][$idx]);
-// Example(2D,Med,NoAxes,Anim,Frames=45,VPT=[-0.125033,0.508151,-66.3877],VPR=[0,0,0],VPD=192.044): In this example we request a sun/carrier ratio of 3.6 and get exactly that ratio.  The carrier shown as the blue pentagon moves very slowly as the central sun turns.  The ring is fixed.  
+// Example(2D,Med,NoAxes,Anim,FrameMS=60,Frames=90,VPT=[-0.125033,0.508151,-66.3877],VPR=[0,0,0],VPD=192.044): In this example we request a sun/carrier ratio of 3.6 and get exactly that ratio.  The carrier shown as the blue pentagon moves very slowly as the central sun turns.  The ring is fixed.  
 //   mod=1;
 //   gear_data = planetary_gears(mod=mod, n=5, max_teeth=70, sun_carrier=3.6, gear_spin=3.6*360/5*$t);
 //   ring_gear2d(mod=mod, teeth=gear_data[1][1], profile_shift=gear_data[1][2], gear_spin=gear_data[1][3],backing=2);
@@ -3502,13 +3553,14 @@ function _gear_tooth_profile(
 //   color("red")move_copies(gear_data[2][4])
 //       spur_gear2d(mod=mod, teeth=gear_data[2][1], profile_shift=gear_data[2][2], gear_spin=gear_data[2][3][$idx]);
 // Example(3D,Med,NoAxes,Anim,Frames=7,FrameMS=50,VPT=[0.128673,0.24149,0.651451],VPR=[38.5,0,21],VPD=222.648): Here we request a sun/ring ratio of 3 and it is exactly achieved.  The carrier, shown in blue, is fixed.  This example is shown with helical gears.  It is important to remember to flip the sign of the helical angle for the planet gears.  
+//   $fn=81;
 //   mod=1;
 //   helical=25;
 //   gear_data = planetary_gears(mod=mod, n=4, max_teeth=82, sun_ring=3, helical=helical,gear_spin=360/27*$t);
 //   ring_gear(mod=mod, teeth=gear_data[1][1], profile_shift=gear_data[1][2], helical=helical, gear_spin=gear_data[1][3],backing=4,thickness=7);
 //   color("blue"){
 //       move_copies(gear_data[2][4]) cyl(h=12,d=4);
-//       down(10)linear_extrude(height=3)scale(1.2)polygon(gear_data[2][4]);
+//       down(9)linear_extrude(height=3)scale(1.2)polygon(gear_data[2][4]);
 //   }    
 //   spur_gear(mod=mod, teeth=gear_data[0][1], profile_shift=gear_data[0][2], helical=helical, gear_spin=gear_data[0][3]);  //sun
 //   color("red")move_copies(gear_data[2][4])
@@ -3824,7 +3876,6 @@ function pitch_radius(
     assert(is_finite(circ_pitch))
     circ_pitch * teeth / PI / 2 / cos(helical);
 
-
 // Function: outer_radius()
 // Synopsis: Returns the outer radius for a gear.
 // Topics: Gears, Parts
@@ -4116,7 +4167,7 @@ function worm_dist(d,starts,teeth,mod,profile_shift=0,diam_pitch,circ_pitch,pres
 //   helical = The value of the helical angle (from vertical) of the teeth on the two gears (either sign).  Default: 0
 //   profile_shift1 = Profile shift factor x for the first gear.  Default: 0
 //   profile_shift2 = Profile shift factor x for the second gear.  Default: 0
-//   --
+//   ---
 //   mod = The module of the gear (pitch diameter / teeth)
 //   diam_pitch = The diametral pitch, or number of teeth per inch of pitch diameter.  Note that the diametral pitch is a completely different thing than the pitch diameter.
 //   circ_pitch = The circular pitch, the distance between teeth centers around the pitch circle.
@@ -4234,7 +4285,7 @@ function _working_pressure_angle(teeth1,profile_shift1, teeth2, profile_shift2, 
 //   helical1 = The helical angle (from vertical) of the teeth on the second gear.
 //   profile_shift1 = Profile shift factor x for the first gear.  Default: "auto"
 //   profile_shift2 = Profile shift factor x for the second gear.  Default: "auto"
-//   --
+//   ---
 //   diam_pitch = The diametral pitch, or number of teeth per inch of pitch diameter.  Note that the diametral pitch is a completely different thing than the pitch diameter.
 //   mod = The module of the gear (pitch diameter / teeth)
 //   circ_pitch = The circular pitch, the distance between teeth centers around the pitch circle.
@@ -4290,7 +4341,7 @@ function _working_normal_pressure_angle_skew(teeth1,profile_shift1,helical1, tee
 //   helical1 = The helical angle (from vertical) of the teeth on the second gear.
 //   profile_shift1 = Profile shift factor x for the first gear.  Default: "auto"
 //   profile_shift2 = Profile shift factor x for the second gear.  Default: "auto"
-//   --
+//   ---
 //   pressure_angle = The pressure angle of the gear.
 // Example(3D,Med,NoAxes,VPT=[-2.62091,2.01048,-1.31405],VPR=[55,0,25],VPD=74.4017): These gears are auto profile shifted and as a result, do not mesh at the sum of their helical angles, but at 2.5 degrees more.  
 //   circ_pitch=5; teeth1=12; teeth2=7; ha1=25; ha2=30; thick=10;

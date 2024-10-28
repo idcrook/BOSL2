@@ -951,17 +951,22 @@ function _path_join(paths,joint,k=0.5,i=0,result=[],relocate=true,closed=false) 
 //   spin = Rotate this many degrees after anchor.  See [spin](attachments.scad#subsection-spin).  Default: `0`
 //   cp = Centerpoint for determining intersection anchors or centering the shape.  Determintes the base of the anchor vector.  Can be "centroid", "mean", "box" or a 2D point.  Default: "centroid"
 //   atype = Set to "hull" or "intersect" to select anchor type.  Default: "hull"
+// Named Anchors:
+//   "origin" = The native position of the region.
+// Anchor Types:
+//   "hull" = Anchors to the virtual convex hull of the region.
+//   "intersect" = Anchors to the outer edge of the region.
 // Example(2D):  Basic examples illustrating flat, round, and pointed ends, on a finely sampled arc and a path made from 3 segments.
 //   arc = arc(points=[[1,1],[3,4],[6,3]],n=50);
 //   path = [[0,0],[6,2],[9,7],[8,10]];
 //   xdistribute(spacing=10){
 //     offset_stroke(path, width = 2);
-//     offset_stroke(path, start="round", end="round", width = 2);
+//     offset_stroke(path, start="round", end="round", width = 2, $fn=32);
 //     offset_stroke(path, start="pointed", end="pointed", width = 2);
 //   }
 //   fwd(10) xdistribute(spacing=10){
 //     offset_stroke(arc, width = 2);
-//     offset_stroke(arc, start="round", end="round", width = 2);
+//     offset_stroke(arc, start="round", end="round", width = 2, $fn=32);
 //     offset_stroke(arc, start="pointed", end="pointed", width = 2);
 //   }
 // Example(2D):  The effect of the `rounded` and `chamfer` options is most evident at sharp corners.  This only affects the middle of the path, not the ends.
@@ -1047,7 +1052,7 @@ function _path_join(paths,joint,k=0.5,i=0,result=[],relocate=true,closed=false) 
 //   right(12)
 //     offset_stroke(path, width=1, closed=true);
 function offset_stroke(path, width=1, rounded=true, start, end, check_valid=true, quality=1, chamfer=false, closed=false,
-                       atype="hull", anchor, spin, cp="centroid") =
+                       atype="hull", anchor="origin", spin, cp="centroid") =
         let(path = force_path(path))
         assert(is_path(path,2),"path is not a 2d path")
         let(
@@ -1091,7 +1096,7 @@ function offset_stroke(path, width=1, rounded=true, start, end, check_valid=true
                           reverse(slice(right_path,startpath[2],-1-endpath[1])),
                           startpath[0]
                   )
-         )
+         ) 
          reorient(anchor=anchor, spin=spin, two_d=true, path=pts, extent=atype=="hull", cp=cp, p=pts);
 
 function os_pointed(dist,loc=0) =
@@ -1251,14 +1256,14 @@ function _path_line_intersection(path, line, ind=0) =
                 _path_line_intersection(path, line, ind+1);
 
 module offset_stroke(path, width=1, rounded=true, start, end, check_valid=true, quality=1, chamfer=false, closed=false,
-                     atype="hull", anchor, spin, cp="centroid")
+                     atype="hull", anchor="origin", spin, cp="centroid")
 {
         result = offset_stroke(
                 path, width=width, rounded=rounded,
                 start=start, end=end,
                 check_valid=check_valid, quality=quality,
                 chamfer=chamfer,
-                closed=closed
+                closed=closed,anchor="origin"
         );
         region(result,atype=atype, anchor=anchor, spin=spin, cp=cp) children();
 }
@@ -1272,9 +1277,9 @@ module offset_stroke(path, width=1, rounded=true, start, end, check_valid=true, 
 // Topics: Rounding, Offsets
 // See Also: convex_offset_extrude(), rounded_prism(), bent_cutout_mask(), join_prism(), linear_sweep()
 // Usage: most common module arguments.  See Arguments list below for more.
-//   offset_sweep(path, [height|length|h|l|], [bottom], [top], [offset=], [convexity=],...) [ATTACHMENTS];
+//   offset_sweep(path, [height|length=|h=|l=], [bottom], [top], [offset=], [convexity=],...) [ATTACHMENTS];
 // Usage: most common function arguments.  See Arguments list below for more.
-//   vnf = offset_sweep(path, [height|h|l|length], [bottom], [top], [offset=], ...);
+//   vnf = offset_sweep(path, [height|length=|h=|l=], [bottom], [top], [offset=], ...);
 // Description:
 //   Takes a 2d path as input and extrudes it upwards and/or downward.  Each layer in the extrusion is produced using `offset()` to expand or shrink the previous layer.  When invoked as a function returns a VNF; when invoked as a module produces geometry.  
 //   Using the `top` and/or `bottom` arguments you can specify a sequence of offsets values, or you can use several built-in offset profiles that
@@ -1309,7 +1314,7 @@ module offset_stroke(path, width=1, rounded=true, start, end, check_valid=true, 
 //   - mask: os_mask(mask, [out]).  Create a profile from one of the [2d masking shapes](shapes2d.scad#5-2d-masking-shapes).  The `out` parameter specifies that the mask should flare outward (like crown molding or baseboard).  This is set false by default.  
 //   .
 //   The general settings that you can use with all of the helper functions are mostly used to control how offset_sweep() calls the offset() function.
-//   - extra: Add an extra vertical step of the specified height, to be used for intersections or differences.  This extra step will extend the resulting object beyond the height you specify.  Default: 0
+//   - extra: Add an extra vertical step of the specified height, to be used for intersections or differences.  This extra step will extend the resulting object beyond the height you specify.  It is ignored by anchoring.  Default: 0
 //   - check_valid: passed to offset().  Default: true
 //   - quality: passed to offset().  Default: 1
 //   - steps: Number of vertical steps to use for the profile.  (Not used by os_profile).  Default: 16
@@ -1343,18 +1348,23 @@ module offset_stroke(path, width=1, rounded=true, start, end, check_valid=true, 
 //   will get a similar or better looking model with fewer vertices using "round" instead of
 //   "chamfer".  Use the "chamfer" style offset only in cases where the number of steps is very small or just one (such as when using
 //   the `os_chamfer` profile type).
-//
+//   .
+//   This module offers four anchor types.  The default is "hull" in which VNF anchors are placed on the VNF of the **unrounded** object.  You
+//   can also use "intersect" to get the intersection anchors to the unrounded object. If you prefer anchors that respect the rounding
+//   then use "surf_hull" or "intersect_hull". 
 // Arguments:
 //   path = 2d path (list of points) to extrude
-//   height / l / h = total height (including rounded portions, but not extra sections) of the output.  Default: combined height of top and bottom end treatments.
-//   bottom = rounding spec for the bottom end
+//   height / length / l / h = total height (including rounded portions, but not extra sections) of the output.  Default: combined height of top and bottom end treatments.
+//   bottom / bot = rounding spec for the bottom end
 //   top = rounding spec for the top end.
 //   ---
+//   ends = give a rounding spec that applies to both the top and bottom
 //   offset = default offset, `"round"` or `"delta"`.  Default: `"round"`
 //   steps = default step count.  Default: 16
 //   quality = default quality.  Default: 1
 //   check_valid = default check_valid.  Default: true.
 //   extra = default extra height.  Default: 0
+//   caps = if false do not create end faces.  Can be a boolean vector to control ends independent.  (function only) Default: true. 
 //   cut = default cut value.
 //   chamfer_width = default width value for chamfers.
 //   chamfer_height = default height value for chamfers.
@@ -1362,11 +1372,20 @@ module offset_stroke(path, width=1, rounded=true, start, end, check_valid=true, 
 //   joint = default joint value for smooth roundover.
 //   k = default curvature parameter value for "smooth" roundover
 //   convexity = convexity setting for use with polyhedron.  (module only) Default: 10
-//   anchor = Translate so anchor point is at the origin.  (module only) Default: "origin"
-//   spin = Rotate this many degrees around Z axis after anchor.  (module only) Default: 0
-//   orient = Vector to rotate top towards after spin  (module only)
-//   atype = Select "hull" or "intersect" anchor types.  Default: "hull"
+//   anchor = Translate so anchor point is at the origin.  Default: "base"
+//   spin = Rotate this many degrees around Z axis after anchor.  Default: 0
+//   orient = Vector to rotate top towards after spin  
+//   atype = Select "hull", "intersect", "surf_hull" or "surf_intersect" anchor types.  Default: "hull"
 //   cp = Centerpoint for determining "intersect" anchors or centering the shape.  Determintes the base of the anchor vector.  Can be "centroid", "mean", "box" or a 3D point.  Default: "centroid"
+// Anchor Types:
+//   hull = Anchors to the convex hull of the linear sweep of the path, ignoring any end roundings.  (default)
+//   intersect = Anchors to the surface of the linear sweep of the path, ignoring any end roundings.
+//   surf_hull = Anchors to the convex hull of the offset_sweep shape, including end treatments.
+//   surf_intersect = Anchors to the surface of the offset_sweep shape, including any end treatments.
+// Named Anchors:
+//   "base" = Anchor to the base of the shape in its native position, ignoring any "extra"
+//   "top" = Anchor to the top of the shape in its native position, ignoring any "extra"
+//   "zcenter" = Center shape in the Z direction in the native XY position, ignoring any "extra"
 // Example: Rounding a star shaped prism with postive radius values
 //   star = star(5, r=22, ir=13);
 //   rounded_star = round_corners(star, cut=flatten(repeat([.5,0],5)), $fn=24);
@@ -1378,19 +1397,19 @@ module offset_stroke(path, width=1, rounded=true, start, end, check_valid=true, 
 // Example: If the shape has sharp corners, make sure to set `$fn/$fs/$fa`.  The corners of this triangle are not round, even though `offset="round"` (the default) because the number of segments is small.
 //   triangle = [[0,0],[10,0],[5,10]];
 //   offset_sweep(triangle, height=6, bottom = os_circle(r=-2),steps=4);
-// Example: Can improve the result by increasing $fn
+// Example: Can improve the result by increasing `$fn`
 //   $fn=12;
 //   triangle = [[0,0],[10,0],[5,10]];
 //   offset_sweep(triangle, height=6, bottom = os_circle(r=-2),steps=4);
-// Example: Using $fa and $fs works too; it produces a different looking triangulation of the rounded corner
+// Example: Using `$fa` and `$fs` works too; it produces a different looking triangulation of the rounded corner
 //   $fa=1;$fs=0.3;
 //   triangle = [[0,0],[10,0],[5,10]];
 //   offset_sweep(triangle, height=6, bottom = os_circle(r=-2),steps=4);
-// Example: Here is the star chamfered at the top with a teardrop rounding at the bottom. Check out the rounded corners on the chamfer.  The large $fn value ensures a smooth curve on the concave corners of the chamfer.  It has no effect anywhere else on the model.  Observe how the rounded star points vanish at the bottom in the teardrop: the number of vertices does not remain constant from layer to layer.
+// Example: Here is the star chamfered at the top with a teardrop rounding at the bottom. Check out the rounded corners on the chamfer.  The large `$fn` value ensures a smooth curve on the concave corners of the chamfer.  It has no effect anywhere else on the model.  Observe how the rounded star points vanish at the bottom in the teardrop: the number of vertices does not remain constant from layer to layer.
 //    star = star(5, r=22, ir=13);
 //    rounded_star = round_corners(star, cut=flatten(repeat([.5,0],5)), $fn=24);
 //    offset_sweep(rounded_star, height=20, bottom=os_teardrop(r=4), top=os_chamfer(width=4),$fn=64);
-// Example: We round a cube using the continous curvature rounding profile.  But note that the corners are not smooth because the curved square collapses into a square with corners.    When a collapse like this occurs, we cannot turn `check_valid` off.  For a better result use `rounded_prism()` instead.
+// Example: We round a cube using the continous curvature rounding profile.  But note that the corners are not smooth because the curved square collapses into a square with corners.    When a collapse like this occurs, we cannot turn `check_valid` off.  For a better result use {{rounded_prism()}} instead.
 //   square = square(1);
 //   rsquare = round_corners(square, method="smooth", cut=0.1, k=0.7, $fn=36);
 //   end_spec = os_smooth(cut=0.1, k=0.7, steps=22);
@@ -1495,40 +1514,42 @@ module offset_stroke(path, width=1, rounded=true, start, end, check_valid=true, 
 
 // This function does the actual work of repeatedly calling offset() and concatenating the resulting face and vertex lists to produce
 // the inputs for the polyhedron module.
-function _make_offset_polyhedron(path,offsets, offset_type, flip_faces, quality, check_valid, offsetind=0,
-                                 vertexcount=0, vertices=[], faces=[] )=
-        offsetind==len(offsets)? (
-                let(
-                        bottom = count(len(path),vertexcount),
-                        oriented_bottom = !flip_faces? bottom : reverse(bottom)
-                ) [vertices, concat(faces,[oriented_bottom])]
-        ) : (
-                let(
-                        this_offset = offsetind==0? offsets[0][0] : offsets[offsetind][0] - offsets[offsetind-1][0],
-                        delta = offset_type=="delta" || offset_type=="chamfer" ? this_offset : undef,
-                        r = offset_type=="round"? this_offset : undef,
-                        do_chamfer = offset_type == "chamfer"
-                )
-                let(
-                        vertices_faces = offset(
-                                path, r=r, delta=delta, chamfer = do_chamfer, closed=true,
-                                check_valid=check_valid, quality=quality,
-                                return_faces=true,
-                                firstface_index=vertexcount,
-                                flip_faces=flip_faces
-                        )
-                )
-                _make_offset_polyhedron(
-                        vertices_faces[0], offsets, offset_type,
-                        flip_faces, quality, check_valid, 
-                        offsetind+1, vertexcount+len(path),
-                        vertices=concat(
-                                vertices,
-                                path3d(vertices_faces[0],offsets[offsetind][1])
-                        ),
-                        faces=concat(faces, vertices_faces[1])
-                )
-        );
+function _make_offset_polyhedron(path,offsets, offset_type, flip_faces, quality, check_valid, cap=true,
+                                 offsetind=0, vertexcount=0, vertices=[], faces=[] )=
+    offsetind==len(offsets)? 
+        let(
+            bottom = count(len(path),vertexcount),
+            oriented_bottom = !flip_faces? bottom : reverse(bottom)
+        )
+        [
+         vertices,
+         [each faces,
+          if (cap) oriented_bottom]
+        ]
+  :
+        let(
+            this_offset = offsetind==0? offsets[0][0] : offsets[offsetind][0] - offsets[offsetind-1][0],
+            delta = offset_type=="delta" || offset_type=="chamfer" ? this_offset : undef,
+            r = offset_type=="round"? this_offset : undef,
+            do_chamfer = offset_type == "chamfer",
+            vertices_faces = offset(
+                    path, r=r, delta=delta, chamfer = do_chamfer, closed=true,
+                    check_valid=check_valid, quality=quality,
+                    return_faces=true,
+                    firstface_index=vertexcount,
+                    flip_faces=flip_faces
+            )
+        )
+        _make_offset_polyhedron(
+                vertices_faces[0], offsets, offset_type,
+                flip_faces, quality, check_valid, cap, 
+                offsetind+1, vertexcount+len(path),
+                vertices=concat(
+                        vertices,
+                        path3d(vertices_faces[0],offsets[offsetind][1])
+                ),
+                faces=concat(faces, vertices_faces[1])
+        );  
 
 
 function _struct_valid(spec, func, name) =
@@ -1538,13 +1559,15 @@ function _struct_valid(spec, func, name) =
 
 function offset_sweep(
                        path, height, 
-                       bottom=[], top=[], 
-                       h, l, length, 
+                       bottom, top, 
+                       h, l, length,
+                       ends,bot,
                        offset="round", r=0, steps=16,
                        quality=1, check_valid=true,
-                       extra=0,
+                       extra=0, caps=true, 
                        cut=undef, chamfer_width=undef, chamfer_height=undef,
-                       joint=undef, k=0.75, angle=45
+                       joint=undef, k=0.75, angle=45, anchor="base", orient=UP, spin=0,atype="hull", cp="centroid",
+                       _return_height=false
                       ) =
     let(
         argspec = [
@@ -1567,15 +1590,16 @@ function offset_sweep(
         path = force_path(path)
     )
     assert(is_path(path,2), "Input path must be a 2D path")
+    assert(is_bool(caps) || is_bool_list(caps,2), "caps must be boolean or a list of two booleans")
     let(
+        caps = is_bool(caps) ? [caps,caps] : caps, 
         clockwise = is_polygon_clockwise(path),
-        dummy1 = _struct_valid(top,"offset_sweep","top"),
-        dummy2 = _struct_valid(bottom,"offset_sweep","bottom"),
-        top = struct_set(argspec, top, grow=false),
-        bottom = struct_set(argspec, bottom, grow=false),
-
-        //  This code does not work.  It hits the error in _make_offset_polyhedron from offset being wrong
-        //  before this code executes.  Had to move the test into _make_offset_polyhedron, which is ugly since it's in the loop
+        top_temp = one_defined([ends,top],"ends,top",dflt=[]),
+        bottom_temp = one_defined([ends,bottom,bot],"ends,bottom,bot",dflt=[]),
+        dummy1 = _struct_valid(top_temp,"offset_sweep","top"),
+        dummy2 = _struct_valid(bottom_temp,"offset_sweep","bottom"),
+        top = struct_set(argspec, top_temp, grow=false),
+        bottom = struct_set(argspec, bottom_temp, grow=false),
         offsetsok = in_list(struct_val(top, "offset"),["round","delta","chamfer"])
                     && in_list(struct_val(bottom, "offset"),["round","delta","chamfer"])
     )
@@ -1593,20 +1617,17 @@ function offset_sweep(
         top_height = len(offsets_top)==0 ? 0 : abs(last(offsets_top)[1]) - struct_val(top,"extra"),
 
         height = one_defined([l,h,height,length], "l,h,height,length", dflt=u_add(bottom_height,top_height)),
-        middle = height-bottom_height-top_height
-    )
-    assert(height>0, "Height must be positive") 
-    assert(middle>=0, str("Specified end treatments (bottom height = ",bottom_height,
-                          " top_height = ",top_height,") are too large for extrusion height (",height,")"
-                         )
-    )
-    let(
+        dummy1 = assert(is_finite(height) && height>0, "Height must be positive"),
+        middle = height-bottom_height-top_height,
+        dummy2= assert(middle>=0, str("Specified end treatments (bottom height = ",bottom_height,
+                                      " top_height = ",top_height,") are too large for extrusion height (",height,")")),
         initial_vertices_bot = path3d(path),
 
         vertices_faces_bot = _make_offset_polyhedron(
                 path, offsets_bot, struct_val(bottom,"offset"), clockwise,
                 struct_val(bottom,"quality"),
                 struct_val(bottom,"check_valid"),
+                caps[0], 
                 vertices=initial_vertices_bot
         ),
 
@@ -1617,6 +1638,7 @@ function offset_sweep(
                 struct_val(top,"offset"), !clockwise,
                 struct_val(top,"quality"),
                 struct_val(top,"check_valid"),
+                caps[1],
                 vertexcount=top_start_ind,
                 vertices=initial_vertices_top
         ),
@@ -1624,31 +1646,53 @@ function offset_sweep(
                 for(i=[0:len(path)-1]) let(
                         oneface=[i, (i+1)%len(path), top_start_ind+(i+1)%len(path), top_start_ind+i]
                 ) !clockwise ? reverse(oneface) : oneface
-        ]
-    )
-    [up(bottom_height, concat(vertices_faces_bot[0],vertices_faces_top[0])),  // Vertices
-     concat(vertices_faces_bot[1], vertices_faces_top[1], middle_faces)];     // Faces
-
+        ],
+        vnf = [up(bottom_height-height/2, concat(vertices_faces_bot[0],vertices_faces_top[0])),  // Vertices
+               concat(vertices_faces_bot[1], vertices_faces_top[1], middle_faces)],     // Faces
+        anchors = [
+          named_anchor("zcenter", [0,0,0], UP),
+          named_anchor("base", [0,0,-height/2], UP),
+          named_anchor("top", [0,0,height/2], UP)          
+        ],
+        final_vnf = in_list(atype,["hull","intersect"])
+                  ? reorient(anchor,spin,orient, path=path, h=height, extent=atype=="hull", cp=cp, p=vnf, anchors=anchors)
+                  : reorient(anchor,spin,orient, vnf=vnf, p=vnf, extent=atype=="surf_hull", cp=cp, anchors=anchors)
+     ) _return_height ? [final_vnf,height] : final_vnf;
 
 module offset_sweep(path, height, 
-                    bottom=[], top=[], 
-                    h, l,
+                    bottom, top, 
+                    h, l, length, ends, bot,
                     offset="round", r=0, steps=16,
                     quality=1, check_valid=true,
                     extra=0,
                     cut=undef, chamfer_width=undef, chamfer_height=undef,
                     joint=undef, k=0.75, angle=45,
-                    convexity=10,anchor="origin",cp="centroid",
+                    convexity=10,anchor="base",cp="centroid",
                     spin=0, orient=UP, atype="hull")
 {
-    assert(in_list(atype, _ANCHOR_TYPES), "Anchor type must be \"hull\" or \"intersect\"");
-    vnf = offset_sweep(path=path, height=height, h=h, l=l, top=top, bottom=bottom, offset=offset, r=r, steps=steps,
-                       quality=quality, check_valid=check_valid, extra=extra, cut=cut, chamfer_width=chamfer_width,
-                       chamfer_height=chamfer_height, joint=joint, k=k, angle=angle);
-    vnf_polyhedron(vnf,convexity=convexity,anchor=anchor, spin=spin, orient=orient, atype=atype, cp=cp)
-        children();
+    assert(in_list(atype, ["intersect","hull","surf_hull","surf_intersect"]), "Anchor type must be \"hull\" or \"intersect\"");
+    vnf_h = offset_sweep(path=path, height=height, h=h, l=l, length=length, bot=bot, top=top, bottom=bottom, ends=ends,
+                         offset=offset, r=r, steps=steps,
+                         quality=quality, check_valid=check_valid, extra=extra, cut=cut, chamfer_width=chamfer_width,
+                         chamfer_height=chamfer_height, joint=joint, k=k, angle=angle, _return_height=true);
+    vnf = vnf_h[0];
+    height = vnf_h[1];
+    anchors = [
+          named_anchor("zcenter", [0,0,0], UP),
+          named_anchor("base", [0,0,-height/2], UP),
+          named_anchor("top", [0,0,height/2], UP)          
+        ];
+    if (in_list(atype,["hull","intersect"]))
+        attachable(anchor,spin,orient,region=force_region(path),h=height,cp=cp,anchors=anchors,extent=atype=="hull"){
+            down(height/2)polyhedron(vnf[0],vnf[1],convexity=convexity);
+            children();
+        }
+    else
+        attachable(anchor,spin.orient,vnf=vnf, cp=cp,anchors=anchors, extent = atype=="surf_hull"){
+            vnf_polyhedron(vnf,convexity=convexity);
+            children();
+        }
 }   
-
 
 
 function os_circle(r,cut,extra,check_valid, quality,steps, offset) =
@@ -1989,7 +2033,11 @@ function _rp_compute_patches(top, bot, rtop, rsides, ktop, ksides, concave) =
 //   vnf = rounded_prism(bottom, [top], [height=|h=|length=|l=], [joint_top=], [joint_bot=], [joint_sides=], [k=], [k_top=], [k_bot=], [k_sides=], [splinesteps=], [debug=]);
 // Description:
 //   Construct a generalized prism with continuous curvature rounding.  You supply the polygons for the top and bottom of the prism.  The only
-//   limitation is that joining the edges must produce a valid polyhedron with coplanar side faces.  You specify the rounding by giving
+//   limitation is that joining the edges must produce a valid polyhedron with coplanar side faces.  The vertices of the top and bottom
+//   are joined in the order listed.  The top should have the standard vertex order for a polyhedron: clockwise as seen when viewing the prism
+//   from the outside. 
+//   .
+//   You specify the rounding by giving
 //   the joint distance away from the corner for the rounding curve.  The k parameter ranges from 0 to 1 with a default of 0.5.  Larger
 //   values give a more abrupt transition and smaller ones a more gradual transition.  If you set the value much higher
 //   than 0.8 the curvature changes abruptly enough that though it is theoretically continuous, it may
@@ -2012,35 +2060,73 @@ function _rp_compute_patches(top, bot, rtop, rsides, ktop, ksides, concave) =
 //   joint_top[1] is negative the shape will flare upward.  At least one value must be non-negative.  The same rules apply for joint_bot.
 //   The joint_sides parameter must be entirely nonnegative.
 //   .
+//   If the roundings at two adjacent side edges exceed the width of the face then the polyhedron will have self-intersecting faces, so it will be invalid.
+//   Similarly, if the roundings on the top or bottom edges cross the top face and intersect with each other, the resulting polyhedron is invalid:
+//   the top face after the roundings are applied must be a valid, non-degenerate polyhedron.  There are two exceptions:  it is permissible to
+//   construct a top that is a single point or two points.  This means you can completely round a cube by setting the joint to half of
+//   the cube's width.  
 //   If you set `debug` to true the module version will display the polyhedron even when it is invalid and it will show the bezier patches at the corners.
-//   This can help troubleshoot problems with your parameters.  With the function form setting debug to true causes it to return [patches,vnf] where
+//   This can help troubleshoot problems with your parameters.  With the function form setting debug to true causes run even on invalid cases and to return [patches,vnf] where
 //   patches is a list of the bezier control points for the corner patches.
+//   .
+//   This module offers five anchor types.  The default is "hull" in which VNF anchors are placed on the VNF of the **unrounded** object.  You
+//   can also use "intersect" to get the intersection anchors to the unrounded object. If you prefer anchors that respect the rounding
+//   then use "surf_hull" or "intersect_hull".  Lastly, in the special case of a prism with four sides, you can use "prismoid" anchoring
+//   which will attempt to assign standard prismoid anchors to the shape by assigning as RIGHT the face that is closest to the RIGHT direction,
+//   and defining the other anchors around the shape baesd on that choice.  
 //   .
 //   Note that rounded_prism() is not well suited to rounding shapes that have already been rounded, or that have many points.
 //   It works best when the top and bottom are polygons with well-defined corners.  When the polygons have been rounded already,
 //   further rounding generates tiny bezier patches patches that can more easily
 //   interfere, giving rise to an invalid polyhedron.  It's also slow because you get bezier patches for every corner in the model.  
 //   .
+// Named Anchors:
+//   "origin" = The native position of the prism.
+//   "top" = Top face, with spin BACK if face is parallel to the XY plane, or with positive Z otherwise
+//   "bot" = Bottom face, with spin BACK if face is parallel to the XY plane, or with positive Z otherwise
+//   "edge0", "edge1", etc. = Center of each side edge, spin pointing up along the edge
+//   "face0", "face1", etc. = Center of each side face, spin pointing up
+//   "top_edge0", "top_edge1", etc = Center of each top edge, spin pointing clockwise (from top)
+//   "bot_edge0", "bot_edge1", etc = Center of each bottom edge, spin pointing clockwise (from bottom)
+//   "top_corner0", "top_corner1", etc = Top corner, pointing in direction of associated edge anchor, spin up along associated edge
+//   "bot_corner0", "bot_2corner1", etc = Bottom corner, pointing in direction of associated edge anchor, spin up along associated edge
 // Arguments:
 //   bottom = 2d or 3d path describing bottom polygon
 //   top = 2d or 3d path describing top polygon (must be the same dimension as bottom)
 //   ---
 //   height/length/h/l = height of the shape when you give 2d bottom
-//   joint_top = rounding length for top (number or 2-vector).  Default: 0
-//   joint_bot = rounding length for bottom (number or 2-vector).  Default: 0
-//   joint_sides = rounding length for side edges, a number/2-vector or list of them.  Default: 0
+//   joint_top = joint distance or [joint,k] pair for top roundover (number or 2-vector).  Default: 0
+//   joint_bot = joint distance or [joint,k] for bottom roundover (number or 2-vector).  Default: 0
+//   joint_sides = joint distance or [joint,k] for rounding of side edges, a number/2-vector or list of them.  Default: 0
 //   k = continuous curvature rounding parameter for all edges.  Default: 0.5
 //   k_top = continuous curvature rounding parameter for top
 //   k_bot = continuous curvature rounding parameter for bottom
-//   k_bot = continuous curvature rounding parameter for bottom
+//   k_sides = continuous curvature rounding parameter side edges, a number or vector.  
 //   splinesteps = number of segments to use for curved patches.  Default: 16
 //   debug = turn on debug mode which displays illegal polyhedra and shows the bezier corner patches for troubleshooting purposes.  Default: False
 //   convexity = convexity parameter for polyhedron(), only for module version.  Default: 10
 //   anchor = Translate so anchor point is at the origin.  (module only) Default: "origin"
 //   spin = Rotate this many degrees around Z axis after anchor.  (module only) Default: 0
 //   orient = Vector to rotate top towards after spin  (module only)
-//   atype = Select "hull" or "intersect" anchor types.  (module only) Default: "hull"
+//   atype = Select "prismoid", "hull", "intersect", "surf_hull" or "surf_intersect" anchor types. (module only) Default: "hull"
 //   cp = Centerpoint for determining "intersect" anchors or centering the shape.  Determintes the base of the anchor vector.  Can be "centroid", "mean", "box" or a 3D point.  (module only) Default: "centroid"
+// Named Anchors:
+//   "top" = center of top face pointing normal to that face
+//   "bot" = center of bottom face pointing normal to that face
+//   "edge0", "edge1", etc. = Center of each side edge, spin pointing up along the edge.  Can access with EDGE(i)
+//   "face0", "face1", etc. = Center of each side face, spin pointing up.  Can access with FACE(i)
+//   "top_edge0", "top_edge1", etc = Center of each top edge, spin pointing clockwise (from top). Can access with EDGE(TOP,i)
+//   "bot_edge0", "bot_edge1", etc = Center of each bottom edge, spin pointing clockwise (from bottom).  Can access with EDGE(BOT,i)
+//   "top_corner0", "top_corner1", etc = Top corner, pointing in direction of associated edge anchor, spin up along associated edge
+//   "bot_corner0", "bot_corner1", etc = Bottom corner, pointing in direction of associated edge anchor, spin up along associated edge
+// Anchor Types:
+//   hull = Anchors to the convex hull of the linear sweep of the path, ignoring any end roundings.  (default)
+//   intersect = Anchors to the surface of the linear sweep of the path, ignoring any end roundings.
+//   surf_hull = Anchors to the convex hull of the offset_sweep shape, including end treatments.
+//   surf_intersect = Anchors to the surface of the offset_sweep shape, including any end treatments.
+
+//   "hull" = Anchors to the virtual convex hull of the prism. 
+//   "intersect" = Anchors to the surface of the prism.
 // Example: Uniformly rounded pentagonal prism
 //   rounded_prism(pentagon(3), height=3,
 //                 joint_top=0.5, joint_bot=0.5, joint_sides=0.5);
@@ -2121,11 +2207,24 @@ module rounded_prism(bottom, top, joint_bot=0, joint_top=0, joint_sides=0, k_bot
                      k=0.5, splinesteps=16, h, length, l, height, convexity=10, debug=false,
                      anchor="origin",cp="centroid",spin=0, orient=UP, atype="hull")
 {
-  assert(in_list(atype, _ANCHOR_TYPES), "Anchor type must be \"hull\" or \"intersect\"");
+  dummy1 = assert(in_list(atype, ["intersect","hull","surf_intersect","surf_hull","prismoid"]),
+                  "Anchor type must be one of: \"hull\", \"intersect\", \"surf_hull\", \"surf_intersect\" or \"prismoid\"")
+           assert(atype!="prismoid" || len(bottom)==4, "Anchor type \"prismoid\" requires that len(bottom)=4");
   result = rounded_prism(bottom=bottom, top=top, joint_bot=joint_bot, joint_top=joint_top, joint_sides=joint_sides,
-                         k_bot=k_bot, k_top=k_top, k_sides=k_sides, k=k, splinesteps=splinesteps, h=h, length=length, height=height, l=l,debug=debug);
-  vnf = debug ? result[1] : result;
-  attachable(anchor=anchor, spin=spin, orient=orient, vnf=vnf, extent=atype=="hull", cp=cp)
+                         k_bot=k_bot, k_top=k_top, k_sides=k_sides, k=k, splinesteps=splinesteps, h=h, length=length, height=height, l=l,
+                         debug=debug, _full_info=true);
+
+  top = is_undef(top) ? path3d(bottom,height/2) :
+        len(top[0])==2 ? path3d(top,height/2) :
+        top;
+  bottom = len(bottom[0])==2 ? path3d(bottom,-height/2) : bottom;
+  unrounded = vnf_vertex_array([top,bottom],caps=true, col_wrap=true,reverse=true);
+
+  vnf = result[1];
+  geom = atype=="prismoid" ? attach_geom(size=[1,1,1],anchors=result[2], override=result[3])
+       : in_list(atype,["hull","intersect"]) ? attach_geom(vnf=unrounded, extent=atype=="hull", cp=cp, anchors=result[2])
+       : attach_geom(vnf=vnf, extent=atype=="surf_hull", cp=cp, anchors=result[2]);
+  attachable(anchor=anchor, spin=spin, orient=orient, geom=geom)
   {
     if (debug){
         vnf_polyhedron(vnf, convexity=convexity);
@@ -2138,7 +2237,7 @@ module rounded_prism(bottom, top, joint_bot=0, joint_top=0, joint_sides=0, k_bot
 
 
 function rounded_prism(bottom, top, joint_bot=0, joint_top=0, joint_sides=0, k_bot, k_top, k_sides, k=0.5, splinesteps=16,
-                       h, length, l, height, debug=false) =
+                       h, length, l, height, debug=false, _full_info=false) =
    let(
        bottom = force_path(bottom,"bottom"),
        top = force_path(top,"top")
@@ -2196,23 +2295,44 @@ function rounded_prism(bottom, top, joint_bot=0, joint_top=0, joint_sides=0, k_b
      bot_patch = _rp_compute_patches(bottom, top, joint_bot, joint_sides_vec, k_bot, k_sides_vec, concave),
 
      vertbad = [for(i=[0:N-1])
-                   if (norm(top[i]-top_patch[i][4][2]) + norm(bottom[i]-bot_patch[i][4][2]) > norm(bottom[i]-top[i])) i],
+                   if (norm(top[i]-top_patch[i][4][2]) + norm(bottom[i]-bot_patch[i][4][2]) > EPSILON + norm(bottom[i]-top[i])) i],
+     // Check that the patch fits on the polygon edge
      topbad = [for(i=[0:N-1])
                    if (norm(top_patch[i][2][4]-top_patch[i][2][2]) + norm(select(top_patch,i+1)[2][0]-select(top_patch,i+1)[2][2])
-                  > norm(top_patch[i][2][2] - select(top_patch,i+1)[2][2]))   [i,(i+1)%N]],
+                  > EPSILON + norm(top_patch[i][2][2] - select(top_patch,i+1)[2][2]))   [i,(i+1)%N]],
      botbad = [for(i=[0:N-1])
                    if (norm(bot_patch[i][2][4]-bot_patch[i][2][2]) + norm(select(bot_patch,i+1)[2][0]-select(bot_patch,i+1)[2][2])
-                  > norm(bot_patch[i][2][2] - select(bot_patch,i+1)[2][2]))   [i,(i+1)%N]],
-     topinbad = [for(i=[0:N-1])
+                  > EPSILON + norm(bot_patch[i][2][2] - select(bot_patch,i+1)[2][2]))   [i,(i+1)%N]],
+     // If top/bot is L-shaped, check that arms of L from adjacent patches don't cross
+     topLbad = [for(i=[0:N-1])
                    if (norm(top_patch[i][0][2]-top_patch[i][0][4]) + norm(select(top_patch,i+1)[0][0]-select(top_patch,i+1)[0][2])
-                          > norm(top_patch[i][0][2]-select(top_patch,i+1)[0][2])) [i,(i+1)%N]],
-     botinbad = [for(i=[0:N-1])
+                          > EPSILON + norm(top_patch[i][0][2]-select(top_patch,i+1)[0][2])) [i,(i+1)%N]],
+     botLbad = [for(i=[0:N-1])
                    if (norm(bot_patch[i][0][2]-bot_patch[i][0][4]) + norm(select(bot_patch,i+1)[0][0]-select(bot_patch,i+1)[0][2])
-                          > norm(bot_patch[i][0][2]-select(bot_patch,i+1)[0][2])) [i,(i+1)%N]]
+                          > EPSILON + norm(bot_patch[i][0][2]-select(bot_patch,i+1)[0][2])) [i,(i+1)%N]],
+     // Check that the inner edges of the patch don't cross
+     topinbad = [for(i=[0:N-1]) 
+                     let(
+                          line1 = project_plane(top,[top_patch[i][2][0],top_patch[i][0][0]]),
+                          line2 = project_plane(top,[select(top_patch,i+1)[2][4],select(top_patch,i+1)[0][4]])
+                     )
+                     if (!approx(line1[0],line1[1]) && !approx(line2[0],line2[1]) &&
+                         line_intersection(line1,line2, SEGMENT,SEGMENT))
+                          [i,(i+1)%N]],
+     botinbad = [for(i=[0:N-1])
+                     let(
+                          line1 = project_plane(bottom,[bot_patch[i][2][0],bot_patch[i][0][0]]),
+                          line2 = project_plane(bottom,[select(bot_patch,i+1)[2][4],select(bot_patch,i+1)[0][4]])
+                     )
+                     if (!approx(line1[0],line1[1]) && !approx(line2[0],line2[1]) &&
+                         line_intersection(line1,line2, SEGMENT,SEGMENT))
+                          [i,(i+1)%N]]
    )
    assert(debug || vertbad==[], str("Top and bottom joint lengths are too large; they interfere with each other at vertices: ",vertbad))
-   assert(debug || topbad==[], str("Joint lengths too large at top edges: ",topbad))
-   assert(debug || botbad==[], str("Joint lengths too large at bottom edges: ",botbad))
+   assert(debug || topbad==[], str("Joint lengths too large at top or side edges: ",topbad))
+   assert(debug || botbad==[], str("Joint lengths too large at bottom or side edges: ",botbad))
+   assert(debug || topLbad==[], str("Joint length too large on the top face or side at edges: ", topLbad))
+   assert(debug || botLbad==[], str("Joint length too large on the bottom face or side at edges: ", botLbad))
    assert(debug || topinbad==[], str("Joint length too large on the top face at edges: ", topinbad))
    assert(debug || botinbad==[], str("Joint length too large on the bottom face at edges: ", botinbad))
    let(
@@ -2242,8 +2362,12 @@ function rounded_prism(bottom, top, joint_bot=0, joint_top=0, joint_sides=0, k_b
                                  top_patch[i][4][4]
                              ]
              ],
-     top_simple = is_path_simple(project_plane(faces[0],faces[0]),closed=true),
-     bot_simple = is_path_simple(project_plane(faces[1],faces[1]),closed=true),
+     top_collinear = is_collinear(faces[0]),
+     bot_collinear = is_collinear(faces[1]),
+     top_degen_ok = top_collinear && len(deduplicate(faces[0]))<=2,
+     bot_degen_ok = bot_collinear && len(deduplicate(faces[1]))<=2,
+     top_simple = top_degen_ok || (!top_collinear && is_path_simple(project_plane(faces[0],faces[0]),closed=true)),
+     bot_simple = bot_degen_ok || (!bot_collinear && is_path_simple(project_plane(faces[1],faces[1]),closed=true)),                                   
      // verify vertical edges
      verify_vert =
        [for(i=[0:N-1],j=[0:4])
@@ -2269,11 +2393,83 @@ function rounded_prism(bottom, top, joint_bot=0, joint_top=0, joint_sides=0, k_b
         vnf = vnf_join([ each column(top_samples,0),
                           each column(bot_samples,0),
                           for(pts=edge_points) vnf_vertex_array(pts),
-                          debug ? vnf_from_polygons(faces) 
+                          debug ? vnf_from_polygons(faces,fast=true) 
                                 : vnf_triangulate(vnf_from_polygons(faces))
-                       ])
+                       ]),
+        topnormal = unit(cross(top[0]-top[1],top[2]-top[1])),
+        botnormal = -unit(cross(bottom[0]-bottom[1],bottom[2]-bottom[1])),
+        sidenormal = [for(i=idx(top))
+                         unit(cross(select(top,i+1)-top[i], bottom[i]-top[i]))],
+
+        //pos, orient, spin, info=...
+        
+        anchors = [
+            for(i=idx(top))
+              let(
+                   face = concat(select(top,[i+1,i]), select(bottom,i,i+1)),
+                   face_ctr = mean(concat(select(top,[i+1,i]), select(bottom,i,i+1))),
+                   bot_edge = bottom[i]-select(bottom,i+1), 
+                   bot_edge_ctr = mean(select(bottom,i,i+1)),
+                   bot_edge_normal = unit(mean([sidenormal[i],botnormal])),
+                   top_edge_normal = unit(mean([sidenormal[i],topnormal])),
+                   top_edge = select(top,i+1)-top[i],
+                   top_edge_ctr = mean(select(top,i,i+1)),
+                   top_edge_dir = select(top,i+1)-top[i],
+                   edge = [top[i],bottom[i]],
+                   edge_ctr = mean([top[i],bottom[i]]),
+                   edge_normal = unit(mean(select(sidenormal,[i,i-1]))),
+                   top_corner_dir = _three_edge_corner_dir([select(sidenormal,i-1),sidenormal[i],topnormal],
+                                                           [top[i]-select(top,i-1), top_edge]),
+                   bot_corner_dir = _three_edge_corner_dir([select(sidenormal,i-1),sidenormal[i],botnormal],
+                                                           [bottom[i]-select(bottom,i-1), bot_edge])
+              )
+              each[
+                named_anchor(EDGE(i),edge_ctr,edge_normal, _compute_spin(edge_normal,top[i]-bottom[i]),
+                             info=[["edge_angle",180-vector_angle(sidenormal[i],select(sidenormal,i-1))], ["edge_length",norm(top[i]-bottom[i])]]),
+                named_anchor(EDGE(UP,i),top_edge_ctr, top_edge_normal, _compute_spin(top_edge_normal,  top_edge),
+                             info=[["edge_angle",180-vector_angle(topnormal,sidenormal[i])], ["edge_length",norm(top_edge)]]),
+                named_anchor(EDGE(DOWN,i),bot_edge_ctr, bot_edge_normal, _compute_spin(bot_edge_normal,  bot_edge),
+                             info=[["edge_angle",180-vector_angle(botnormal,sidenormal[i])], ["edge_length",norm(bot_edge)]]), 
+                named_anchor(FACE(i),mean(face), sidenormal[i], _compute_spin(sidenormal[i],UP)),
+                named_anchor(str("top_corner",i),top[i], top_corner_dir, _compute_spin(top_corner_dir,UP)), 
+                named_anchor(str("bot_corner",i),bottom[i], bot_corner_dir, _compute_spin(bot_corner_dir,UP)) 
+              ],
+            named_anchor("top", mean(top), topnormal, _compute_spin(topnormal, approx(v_abs(topnormal),UP)?BACK:UP)),
+            named_anchor("bot", mean(bottom), botnormal, _compute_spin(botnormal, approx(v_abs(botnormal),UP)?BACK:UP)),
+        ],
+        override = len(top)!=4 ? undef
+           :
+            let(
+                stddir = [RIGHT,FWD,LEFT,BACK],
+                getanch = function(name) search([name], anchors, num_returns_per_match=1)[0],
+                dir_angle = [for(i=[0:3])  vector_angle(anchors[6*i+3][2],RIGHT)],
+                ofs = search([min(dir_angle)], dir_angle, num_returns_per_match=1)[0]
+            )
+            [
+              [UP, select(anchors[24],1,3)],
+              [DOWN, select(anchors[25],1,3)],
+              for(i=[0:3])
+                let(
+                    edgeanch=anchors[((i+ofs)%4)*6],
+                    upedge=anchors[((i+ofs)%4)*6+1],
+                    downedge=anchors[((i+ofs)%4)*6+2],                    
+                    faceanch=anchors[((i+ofs)%4)*6+3],
+                    upcorner=anchors[((i+ofs)%4)*6+4],
+                    downcorner=anchors[((i+ofs)%4)*6+5]
+                )    
+                each [
+                      [stddir[i],select(faceanch,1,3)],
+                      [stddir[i]+select(stddir,i-1), select(edgeanch,1,3)],
+                      [stddir[i]+UP, select(upedge,1,3)], 
+                      [stddir[i]+DOWN, select(downedge,1,3)],
+                      [stddir[i]+select(stddir,i-1)+UP, select(upcorner,1,3)],
+                      [stddir[i]+select(stddir,i-1)+DOWN, select(downcorner,1,3)],
+                     ] 
+           ]
     )
-    debug ? [concat(top_patch, bot_patch), vnf] : vnf;
+    !debug && !_full_info ? vnf
+  : _full_info ? [concat(top_patch, bot_patch), vnf, anchors, override]
+  : [concat(top_patch, bot_patch), vnf];
 
 
 
@@ -2543,8 +2739,8 @@ Access to the derivative smoothing parameter?
 //   When joining between planes this function produces similar results to {{rounded_prism()}}.  This function works best when the prism
 //   cross section is a continuous shape with a high sampling rate and without sharp corners.  If you have sharp corners you should consider
 //   giving them a small rounding first.  When the prism cross section has concavities the fillet size will be limited by the curvature of those concavities.
-//   In contrast, {{rounded_prism()}} works best on a prism that has fewer points.  A high sampling rate can lead to problems, and rounding
-//   over sharp corners leads to poor results.  
+//   In contrast, {{rounded_prism()}} works best on a prism that has fewer points and does well with sharp corners, but may encounter problems
+//   with a high sampling rate.  
 //   .
 //   You specify the prism by giving its cross section as a 2D path.  The cross section will always be the orthogonal cross
 //   section of the prism.  Depending on end conditions, the ends may not be perpendicular to the
@@ -2599,7 +2795,7 @@ Access to the derivative smoothing parameter?
 //   Note that the joint with a curved base may significantly extend the length of the joiner prism: it's total length will often be larger than
 //   the length you request.  
 //   .
-//   For the cylinder and spherical objects you may with to joint a prism to the concave surface.  You can do this by setting a negative
+//   For the cylinder and spherical objects you may wish to joint a prism to the concave surface.  You can do this by setting a negative
 //   radius for the base or auxiliary object.  When `base_r` is negative, and the joiner prism axis is vertical, the prism root will be **below** the
 //   XY plane.  In this case it is actually possible to use the same object for base and aux and you can get a joiner prism that crosses a cylindrical
 //   or spherical hole.
@@ -2631,7 +2827,7 @@ Access to the derivative smoothing parameter?
 //   For joins to convex objects you can choose a small value, but when joining to a concave object the overlap may need to be
 //   very large to ensure that the base of the joiner prism is well-behaved.  In such cases you may need to use an intersection
 //   remove excess base.
-// Figure(2D,Med,NoAxes): Uniform fillet method.  This image shows how the fillet we construct a uniform fillet.  The pictures shows the cross section that is perpendicular to the prism.  The blue curve represents the base object surface.  The vertical line is the side of the prism.  To construct a fillet we travel along the surface of the base, following the curve, until we have moved the fillet length, `a`.  This defines the point `u`.  We then construct a tangent line to the base and find its intersection, `v`, with the prism.  Note that if the base is steeply curved, this tangent may fail to intersect, and the algorithm will fail with an error because `v` does not exist.  Finally we locate `w` to be distance `a` above the point where the prism intersects the base object.  The fillet is defined by the `[u,v,w]` triple and is shown in red.  Note that with this method, the fillet is always height `a` above the base, so it makes a uniform curve parallel to the base object.  However, when the base curvature is more extreme, point `v` may end up above point `w`, resulting in an invalid configuration.  It also happens that point `v`, while below `w`, is very close to `w`, so the resulting fillet has an abrupt angle near `w` instead of a smooth transition.  
+// Figure(2D,Med,NoAxes): Uniform fillet method.  This image shows how we construct a uniform fillet.  The pictures shows the cross section that is perpendicular to the prism.  The blue curve represents the base object surface.  The vertical line is the side of the prism.  To construct a fillet we travel along the surface of the base, following the curve, until we have moved the fillet length, `a`.  This defines the point `u`.  We then construct a tangent line to the base and find its intersection, `v`, with the prism.  Note that if the base is steeply curved, this tangent may fail to intersect, and the algorithm will fail with an error because `v` does not exist.  Finally we locate `w` to be distance `a` above the point where the prism intersects the base object.  The fillet is defined by the `[u,v,w]` triple and is shown in red.  Note that with this method, the fillet is always height `a` above the base, so it makes a uniform curve parallel to the base object.  However, when the base curvature is more extreme, point `v` may end up above point `w`, resulting in an invalid configuration.  It also happens that point `v`, while below `w`, is very close to `w`, so the resulting fillet has an abrupt angle near `w` instead of a smooth transition.  
 //   R=60;
 //   base = R*[cos(70),sin(70)];
 //   end = R*[cos(45),sin(45)];
@@ -2726,7 +2922,7 @@ Access to the derivative smoothing parameter?
 //   orient = Vector to rotate top towards after spin  (module only)
 //   atype = Select "hull" or "intersect" anchor types.  (module only) Default: "hull"
 //   cp = Centerpoint for determining "intersect" anchors or centering the shape.  Determintes the base of the anchor vector.  Can be "centroid", "mean", "box" or a 3D point.  (module only) Default: "centroid"
-// Extra Anchors:
+// Named Anchors:
 //   "root" = Root point of the joiner prism, pointing out in the direction of the prism axis
 //   "end" = End point of the joiner prism, pointing out in the direction of the prism axis
 // Example(3D,NoScales): Here is the simplest case, a circular prism with a specified length standing vertically on a plane.  
@@ -3031,7 +3227,7 @@ Access to the derivative smoothing parameter?
 //   flower = [for(theta=lerpn(0,360,180,endpoint=false))
 //             (15+1.3*sin(6*theta))*[cos(theta),sin(theta)]];
 //   aux_T = up(12)*xrot(-22);
-//   join_prism(flower,base="plane",fillet=4, n=12,
+//   join_prism(flower,base="plane",fillet=2.75, n=12,
 //              aux="plane", aux_T=aux_T); 
 //   multmatrix(aux_T)cuboid([42,42,4],anchor=BOT);
 //   cuboid([40,40,4],anchor=TOP);
@@ -3039,7 +3235,7 @@ Access to the derivative smoothing parameter?
 //   flower = [for(theta=lerpn(0,360,180,endpoint=false))
 //             (15+1.3*sin(6*theta))*[cos(theta),sin(theta)]];
 //   aux_T = xrot(-22)*up(12);
-//   join_prism(flower,base="plane",fillet=4, n=12,
+//   join_prism(flower,base="plane",fillet=2.75, n=12,
 //              aux="plane", aux_T=aux_T);
 //   multmatrix(aux_T)cuboid([42,42,4],anchor=BOT);
 //   cuboid([43,43,4],anchor=TOP);
@@ -3136,6 +3332,45 @@ Access to the derivative smoothing parameter?
 //   multmatrix(aux_T)
 //     linear_sweep(flower,height=60,center=true,orient=RIGHT);
 //   linear_sweep(flower,height=60,center=true,orient=RIGHT);
+// Example(3D,NoScales): By setting the base and auxiliary to the same thing you can create a hole cutting mask with rounded ends.  
+//   difference(){
+//     spheroid(r=30,circum=true);    
+//     join_prism(circle(r=15),base="sphere",base_r=-30, n=15,
+//                aux="sphere",aux_r=-30,fillet=8, overlap=17);
+//   }
+// Example(3D,VPT=[0.59633,-3.01826,-3.89606],VPR=[129.2,0,26.4],VPD=192.044,NoScales): Here we have rotated the auxiliary sphere which results in a hole that is off-center through the sphere.  Because we rotate the auxiliary object, both ends of the prism have moved.  Note that setting k to a large value better matches the bezier curve to the curvature of the sphere, resulting in a better result.  
+//  difference(){
+//    spheroid(r=30,circum=true);    
+//    join_prism(circle(r=15),base="sphere",base_r=-30, n=15,
+//               aux="sphere",aux_T=xrot(30), aux_r=-30,fillet=8, overlap=17, k=0.9);
+//  }
+// Example(3D,VPT=[-12.5956,-5.1125,-0.322237],VPR=[82.3,0,116.7],VPD=213.382,NoScales): Here we adjust just the auxiliary end, which note is at the bottom.  We rotate it by 45 deg, but this rotation would normally be relative to the other prism end, so we add a centerpoint based on the radius so that the rotation is relative to the sphere center instead.
+//   difference(){
+//     spheroid(r=30,circum=true);    
+//     join_prism(circle(r=15),base="sphere",base_r=-30, n=15,
+//                aux="sphere",prism_end_T=xrot(45,cp=[0,0,-30]), aux_r=-30,fillet=8, overlap=17, k=0.9);               
+//   }
+// Example(3D,NoScales,VPT=[12.3373,11.6037,-1.87883],VPR=[40.3,0,323.4],VPD=292.705): A diagonal hole through a cylinder with rounded ends, created by shifting the auxiliary prism end along the prism length.  
+//  back_half(200)
+//     difference(){
+//       right(15)xcyl(r=30,l=100,circum=true); 
+//       join_prism(circle(r=15),base="cyl",base_r=-30, n=15,
+//                  aux="cyl",prism_end_T=right(35),aux_r=-30,fillet=7, overlap=17);
+//     }
+// Example(3D,NoScales,VPT=[-7.63774,-0.808304,13.8874],VPR=[46.6,0,71.2],VPD=237.091): A hole created by shifting along prism width.  
+//  left_half()
+//     difference(){
+//       xcyl(r=30,l=100,circum=true); 
+//       join_prism(circle(r=15),base="cyl",base_r=-30, n=15,
+//                  aux="cyl",prism_end_T=fwd(9),aux_r=-30,fillet=7, overlap=17);
+//     }
+// Example(3D,NoScales,VPT=[1.99307,-2.05618,-0.363144],VPR=[64.8,0,15],VPD=237.091): Shifting the auxiliary cylinder changes both ends of the prism
+//   back_half(200)
+//      difference(){
+//         xcyl(r=30,l=100,circum=true); 
+//         join_prism(circle(r=15),base="cyl",base_r=-30, n=15,
+//                    aux="cyl",aux_T=right(20),aux_r=-30,fillet=7, overlap=17);
+//      }
 // Example(3D): Positioning a joiner prism as an attachment
 //   cuboid([20,30,40])
 //     attach(RIGHT,"root")
@@ -3232,8 +3467,11 @@ function join_prism(polygon, base, base_r, base_d, base_T=IDENT,
       base_r=default(base_r,0),
       polygon=clockwise_polygon(polygon),
       start_center = CENTER,
+      aux_T_horiz = submatrix(aux_T,[0:2],[0:2]) == ident(3) && aux_T[2][3]==0, 
       dir = aux=="none" ? apply(aux_T,UP)
-          : apply(aux_T,CENTER) == CENTER ? apply(aux_T,UP)
+          : aux_T_horiz && in_list([base,aux], [["sphere","sphere"], ["cyl","cylinder"],["cylinder","cyl"], ["cyl","cyl"], ["cylinder", "cylinder"]]) ?
+            unit(apply(aux_T, aux_r*UP))
+          : apply(aux_T,CENTER)==CENTER ? apply(aux_T,UP)
           : apply(aux_T,CENTER),
       flip = short ? -1 : 1,
       start = base=="sphere" ?
@@ -3241,6 +3479,7 @@ function join_prism(polygon, base, base_r, base_d, base_T=IDENT,
                 assert(answer,"Prism center doesn't intersect sphere (base)")
                 answer
             : base=="cyl" || base=="cylinder" ?
+                assert(dir.y!=0 || dir.z!=0, "Prism direction parallel to the cylinder")
                 let(
                      mapped = apply(yrot(90),[CENTER,flip*dir]),
                      answer = _cyl_line_intersection(abs(base_r),mapped,sign(base_r)*mapped[1])
@@ -3308,14 +3547,14 @@ function join_prism(polygon, base, base_r, base_d, base_T=IDENT,
       base_trans = rot_inverse(base_T),
       base_top = apply(base_trans, truetop),
       base_bot = apply(base_trans, truebot),
-      botmesh = apply(base_T,_prism_fillet("base", base, base_r, base_bot, base_top, base_fillet, base_k, n, base_overlap,base_uniform,debug)),
+      botmesh = apply(base_T,_prism_fillet("base", base, base_r, base_bot, base_top, base_fillet, base_k, base_n, base_overlap,base_uniform,debug)),
       aux_trans = rot_inverse(aux_T),
       aux_top = apply(aux_trans, reverse_polygon(truetop)),
       aux_bot = apply(aux_trans, reverse_polygon(truebot)),
-      topmesh_reversed = _prism_fillet("aux",aux, aux_r, aux_top, aux_bot, aux_fillet, aux_k, n, aux_overlap,aux_uniform,debug),
+      topmesh_reversed = _prism_fillet("aux",aux, aux_r, aux_top, aux_bot, aux_fillet, aux_k, aux_n, aux_overlap,aux_uniform,debug),
       topmesh = apply(aux_T,[for(i=[len(topmesh_reversed)-1:-1:0]) reverse_polygon(topmesh_reversed[i])]),
       round_dir = select(topmesh,-1)-botmesh[0],
-      roundings_cross = [for(i=idx(topmesh)) if (round_dir[i]*(truetop[i]-truebot[i])<0) i],
+      roundings_cross = [for(i=idx(truetop)) if (round_dir[i]*(truetop[i]-truebot[i])<0) i],
       vnf = vnf_vertex_array(concat(topmesh,botmesh),col_wrap=true, caps=true, reverse=true)
   )
   assert(debug || roundings_cross==[],"Roundings from the two ends cross on the prism: decrease size of roundings")
@@ -3333,6 +3572,7 @@ function _fix_angle_list(list,ind=0, result=[]) =
 // intersection with cylinder of radius R oriented on Z axis, with infinite extent
 // if ref is given, return point with larger inner product with ref.  
 function _cyl_line_intersection(R, line, ref) =
+   assert(point2d(line[1]-line[0]) != [0,0], "Prism appears to be parallel to cylinder.  Unable to find prism endpoints.")
    let(
        line2d = path2d(line),
        cisect = circle_line_intersection(r=R, cp=[0,0], line=line2d)

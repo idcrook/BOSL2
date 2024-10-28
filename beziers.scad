@@ -457,7 +457,8 @@ function bezpath_points(bezpath, curveind, u, N=3) =
 //       [60,25], [70,0], [80,-25],
 //       [80,-50], [50,-50]
 //   ];
-//   debug_bezier(bez, N=3, width=2);
+//   path = bezpath_curve(bez);
+//   stroke(path,dots=true,dots_color="red");
 function bezpath_curve(bezpath, splinesteps=16, N=3, endpoint=true) =
     assert(is_path(bezpath))
     assert(is_int(N))
@@ -465,12 +466,15 @@ function bezpath_curve(bezpath, splinesteps=16, N=3, endpoint=true) =
     assert(len(bezpath)%N == 1, str("A degree ",N," bezier path should have a multiple of ",N," points in it, plus 1."))
     let(
         segs = (len(bezpath)-1) / N,
-        step = 1 / splinesteps
-    ) [
-        for (seg = [0:1:segs-1])
-            each bezier_points(select(bezpath, seg*N, (seg+1)*N), [0:step:1-step/2]),
-        if (endpoint) last(bezpath)
-    ];
+        step = 1 / splinesteps,
+        path = [
+            for (seg = [0:1:segs-1])
+                each bezier_points(select(bezpath, seg*N, (seg+1)*N), [0:step:1-step/2]),
+            if (endpoint) last(bezpath)
+        ],
+        is_closed = approx(path[0], last(path)),
+        out = path_merge_collinear(path, closed=is_closed)
+    ) out;
 
 
 // Function: bezpath_closest_point()
@@ -1201,7 +1205,7 @@ function bezier_vnf(patches=[], splinesteps=16, style="default") =
 //         ];
 //   vnf_wireframe(bezier_vnf_degenerate_patch(patch, splinesteps),width=0.1);
 //   color("red")move_copies(flatten(patch)) sphere(r=0.3,$fn=9);
-// Example(3D,NoAxes): A more extreme degeneracy occurs when the top half of a patch is degenerate to a line.  (For odd length patches the middle row must be degenerate to trigger this style.)  In this case the number of points in each row decreases by 1 for every row.  It doesn't matter of splinesteps is odd or even. 
+// Example(3D,NoAxes): A more extreme degeneracy occurs when the top half of a patch is degenerate to a line.  (For odd length patches the middle row must be degenerate to trigger this style.)  In this case the number of points in each row decreases by 1 for every row.  It doesn't matter if splinesteps is odd or even. 
 //   splinesteps=8;
 //   patch = [[[10, 0, 0], [10, -10.4, 0], [10, -20.8, 0], [1.876, -14.30, 0], [-6.24, -7.8, 0]],
 //            [[5, 0, 0], [5, -5.2, 0], [5, -10.4, 0], [0.938, -7.15, 0], [-3.12, -3.9, 0]],
@@ -1251,8 +1255,8 @@ function bezier_vnf_degenerate_patch(patch, splinesteps=16, reverse=false, retur
     assert(is_bezier_patch(patch), "Input is not a Bezier patch")
     assert(is_int(splinesteps) && splinesteps>0, "splinesteps must be a positive integer")
     let(
-        row_degen = [for(row=patch) all_equal(row)],
-        col_degen = [for(col=transpose(patch)) all_equal(col)],
+        row_degen = [for(row=patch) all_equal(row,eps=EPSILON)],
+        col_degen = [for(col=transpose(patch)) all_equal(col,eps=EPSILON)],
         top_degen = row_degen[0],
         bot_degen = last(row_degen),
         left_degen = col_degen[0],
@@ -1391,7 +1395,7 @@ function bezier_vnf_degenerate_patch(patch, splinesteps=16, reverse=false, retur
 //        stroke([pts[i][j],pts[i][j]-8*normals[i][j]], width=0.5,
 //               endcap1="dot",endcap2="arrow2",color=color);
 //   }
-// Example(3D,Med,NoAxes,VPR=[56.4,0,71.9],VPD=66.9616,VPT=[10.2954,1.33721,19.4484]): This degenerate patch has normals everywhere, but computational of the normal fails at the point of degeneracy, the top corner.  
+// Example(3D,Med,NoAxes,VPR=[56.4,0,71.9],VPD=66.9616,VPT=[10.2954,1.33721,19.4484]): This degenerate patch has normals everywhere, but computation of the normal fails at the point of degeneracy, the top corner.  
 //    patch=[
 //             repeat([-12.5, 12.5, 15],5),
 //              [[-6.25, 11.25, 15], [-6.25, 8.75, 15], [-6.25, 6.25, 15], [-8.75, 6.25, 15], [-11.25, 6.25, 15]],
@@ -1442,26 +1446,82 @@ function bezier_patch_normals(patch, u, v) =
     :             column(bezier_patch_normals(patch,u,force_list(v)),0);
 
 
+// Function: bezier_sheet()
+// Synopsis: Creates a thin sheet from a bezier patch by extruding in normal to the patch
+// SynTags: VNF
+// Topics: Bezier Patches
+// See Also: bezier_patch_normals(), vnf_sheet()
+// Description:
+//   Constructs a thin sheet from a bezier patch by offsetting the given patch along the normal vectors
+//   to the patch surface.  The thickness value must be small enough so that no points cross each other
+//   when the offset is computed, because that results in invalid geometry and will give rendering errors.
+//   Rendering errors may not manifest until you add other objects to your model.  
+//   **It is your responsibility to avoid invalid geometry!**
+//   .
+//   The normals are computed using {{bezier_patch_normals()}} and if they are degenerate then
+//   the computation will fail or produce incorrect results.  See {{bezier_patch_normals()}} for
+//   examples of various ways the normals can be degenerate.
+//   .
+//   When thickness is positive, the given bezier patch is extended towards its "inside", which is the
+//   side that appears purple in the "thrown together" view.  You can extend the patch in the other direction
+//   using a negative thickness value.
+// Arguments:
+//   patch = bezier patch to process
+//   thickness = amount to offset; can be positive or negative
+//   ---
+//   splinesteps = Number of segments on the border edges of the bezier surface.  You can specify [USTEPS,VSTEPS].  Default: 16
+//   style = {{vnf_vertex_array()}} style to use.  Default: "default"
+// Example(3D):
+//   patch = [
+//        // u=0,v=0                                         u=1,v=0
+//        [[-50,-50,  0], [-16,-50,  20], [ 16,-50, -20], [50,-50,  0]],
+//        [[-50,-16, 20], [-16,-16,  20], [ 16,-16, -20], [50,-16, 20]],
+//        [[-50, 16, 20], [-16, 16, -20], [ 16, 16,  20], [50, 16, 20]],
+//        [[-50, 50,  0], [-16, 50, -20], [ 16, 50,  20], [50, 50,  0]],
+//        // u=0,v=1                                         u=1,v=1
+//   ];
+//   vnf_polyhedron(bezier_sheet(patch, 10));
+function bezier_sheet(patch, thickness, splinesteps=16, style="default") =
+  assert(is_bezier_patch(patch))
+  assert(all_nonzero([thickness]), "thickness must be nonzero")
+  let(
+        splinesteps = force_list(splinesteps,2),
+        uvals = lerpn(0,1,splinesteps.x+1),
+        vvals = lerpn(1,0,splinesteps.y+1),
+        pts = bezier_patch_points(patch, uvals, vvals),
+        normals = bezier_patch_normals(patch, uvals, vvals),
+        dummy=assert(is_matrix(flatten(normals)),"Bezier patch has degenerate normals"),
+        offset = pts + thickness*normals,
+        allpoints = [for(i=idx(pts)) concat(pts[i], reverse(offset[i]))],
+        vnf = vnf_vertex_array(allpoints, col_wrap=true, caps=true, style=style)        
+  )
+  thickness<0 ? vnf_reverse_faces(vnf) : vnf;
+
+
 
 // Section: Debugging Beziers
 
 
 // Module: debug_bezier()
-// Synopsis: Shows a bezier path and it's associated control points.
+// Synopsis: Shows a bezier path and its associated control points.
 // SynTags: Geom
 // Topics: Bezier Paths, Debugging
 // See Also: bezpath_curve()
 // Usage:
 //   debug_bezier(bez, [size], [N=]);
 // Description:
-//   Renders 2D or 3D bezier paths and their associated control points.
-//   Useful for debugging bezier paths.
+//   Renders 2D or 3D bezier paths and their associated control points to help debug bezier paths. 
+//   The endpoints of each bezier curve in the bezier path are marked with a blue circle and the intermediate control
+//   points with a red plus sign.  For cubic (degree 3) bezier paths, the module displays the standard representation
+//   of the control points as "handles" at each endpoint.  For other degrees the control points are drawn as
+//   a polygon.  You can of course give a single bezier curve as input, but you must in that case explicitly specify
+//   the bezier degree when it is not a cubic bezier.  
 // Arguments:
 //   bez = the array of points in the bezier.
 //   size = diameter of the lines drawn.
 //   ---
-//   N = Mark the first and every Nth vertex after in a different color and shape.
-// Example(2D):
+//   N = The degree of the bezier curves.  Cubic beziers have N=3.  Default: 3
+// Example(2D): Cubic bezier path
 //   bez = [
 //       [-10,   0],  [-15,  -5],
 //       [ -5, -10],  [  0, -10],  [ 5, -10],
@@ -1469,6 +1529,15 @@ function bezier_patch_normals(patch, u, v) =
 //       [  5,  10],  [  0,  10]
 //   ];
 //   debug_bezier(bez, N=3, width=0.5);
+// Example(2D): Quartic (degree 4) bezier path
+//   bez = [
+//       [-10,   0],  [-15,  -5],
+//       [ -9, -10],  [  0, -12],  [ 5, -10],
+//       [ 14,  -5],  [ 18,   0],  [16,   5],
+//       [  5,  10] 
+//   ];
+//   debug_bezier(bez, N=4, width=0.5);
+
 module debug_bezier(bezpath, width=1, N=3) {
     no_children($children);
     check = 
@@ -1517,7 +1586,7 @@ module debug_bezier(bezpath, width=1, N=3) {
 //   showcps = If true, show the controlpoints as well as the surface.  Default: true.
 //   showdots = If true, shows the calculated surface vertices.  Default: false.
 //   showpatch = If true, shows the surface faces.  Default: true.
-//   size = Size to show control points and lines.
+//   size = Size to show control points and lines.  Default: 1% of the maximum side length of a box bounding the patch.
 //   style = The style of subdividing the quads into faces.  Valid options are "default", "alt", and "quincunx".
 //   convexity = Max number of times a line could intersect a wall of the shape.
 // Example:
