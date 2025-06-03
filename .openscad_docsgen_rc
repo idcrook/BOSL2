@@ -1,7 +1,7 @@
 DocsDirectory: BOSL2.wiki/
 TargetProfile: githubwiki
 ProjectName: The Belfry OpenScad Library, v2. (BOSL2)
-GenerateDocs: Files, TOC, Index, Topics, CheatSheet, Sidebar
+GenerateDocs: Files, TOC, Index, Topics, CheatSheet, Sidebar, Glossary
 SidebarHeader:
   ## Indices
   .
@@ -35,8 +35,10 @@ PrioritizeFiles:
   skin.scad
   vnf.scad
   beziers.scad
+  nurbs.scad
   rounding.scad
   turtle3d.scad
+  isosurface.scad
   math.scad
   linalg.scad
   vectors.scad

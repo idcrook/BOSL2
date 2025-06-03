@@ -448,7 +448,7 @@ function zcopies(spacing, n, l, sp, p=_NO_ARG) =
 //   When called as a module, copies `children()` at one or more evenly spaced positions along a line.
 //   By default, the line will be centered at the origin, unless the starting point `p1` is given.
 //   The line will be pointed towards `RIGHT` (X+) unless otherwise given as a vector in `l`,
-//   `spacing`, or `p1`/`p2`.  The psotion of the copies is specified in one of several ways:
+//   `spacing`, or `p1`/`p2`.  The position of the copies is specified in one of several ways:
 //   .
 //   If You Know...                   | Then Use Something Like...
 //   -------------------------------- | --------------------------------
@@ -520,6 +520,7 @@ module line_copies(spacing, n, l, p1, p2)
 
 function line_copies(spacing, n, l, p1, p2, p=_NO_ARG) =
     assert(is_undef(spacing) || is_finite(spacing) || is_vector(spacing))
+    assert(!is_list(spacing) || len(spacing)==2 || len(spacing)==3, "Vector `spacing` must have length 2 or 3")
     assert(is_undef(n) || is_finite(n))
     assert(is_undef(l) || is_finite(l) || is_vector(l))
     assert(is_undef(p1) || is_vector(p1))
@@ -527,7 +528,9 @@ function line_copies(spacing, n, l, p1, p2, p=_NO_ARG) =
     assert(is_undef(p2) || is_def(p1), "If p2 is given must also give p1")
     assert(is_undef(p2) || is_undef(l), "Cannot give both p2 and l")
     assert(is_undef(n) || num_defined([l,spacing,p2])==1,"If n is given then must give exactly one of 'l', 'spacing', or the 'p1'/'p2' pair")
-    assert(is_def(n) || num_defined([l,spacing,p2])>=1,"If n is given then must give at least one of 'l', 'spacing', or the 'p1'/'p2' pair")    
+    assert(is_def(n) || num_defined([l,spacing,p2])>=1,"If n is not given then must give at least one of 'l', 'spacing', or the 'p1'/'p2' pair")
+    assert(!(is_vector(spacing) && is_vector(l) && vector_angle(spacing,l)>EPSILON), "Cannot give conflicting vector 'spacing' and vector 'l' value.")
+    assert(!(is_vector(spacing) && is_def(p2)), "Cannot combine vector 'spacing' with the 'p1'/'p2' pair")
     let(
         ll = is_def(l)? scalar_vec3(l, 0)
            : is_def(spacing) && is_def(n)? (n-1) * scalar_vec3(spacing, 0)
@@ -538,13 +541,12 @@ function line_copies(spacing, n, l, p1, p2, p=_NO_ARG) =
             : 2,
         spc = cnt<=1? [0,0,0]
             : is_undef(spacing) && is_def(ll)? ll/(cnt-1) 
-            : is_num(spacing) && is_def(ll)? (ll/(cnt-1)) 
+            : is_num(spacing) && is_def(ll)? ll/(cnt-1)
             : scalar_vec3(spacing, 0)
     )
     assert(!is_undef(cnt), "Need two of `spacing`, 'l', 'n', or `p1`/`p2` arguments in `line_copies()`.")
     let( spos = !is_undef(p1)? point3d(p1) : -(cnt-1)/2 * spc )
     [for (i=[0:1:cnt-1]) translate(i * spc + spos, p=p)];
-
 
 
 // Function&Module: grid_copies()
@@ -654,6 +656,7 @@ module grid_copies(spacing, n, size, stagger=false, inside=undef, nonzero)
         is_vector(n)? assert(len(n)==2) n :
         size!=undef && spacing!=undef? v_floor(v_div(size,spacing))+[1,1] :
         [2,2];
+    dummy2 = assert(is_int(n[0]) && is_int(n[1]), "The number of rows/columns must be an integer");
     offset = v_mul(spacing, n-[1,1])/2;
 
     poslist = 
@@ -1177,7 +1180,7 @@ function zrot_copies(rots=[], cp=[0,0,0], n, sa=0, r, d, subrot=true, p=_NO_ARG)
 //
 //
 // Description:
-//   When called as a module, evenly distributes n duplicate children around an ovoid arc on the XY plane.
+//   When called as a module, evenly distributes n duplicate children around an elliptical arc on the XY plane.
 //   When called as a function, *without* a `p=` argument, returns a list of transformation matrices, one for each copy.
 //   When called as a function, *with* a `p=` argument, returns a list of transformed copies of `p=`.
 //
@@ -1235,13 +1238,13 @@ module arc_copies(
     sa=0, ea=360,
     rot=true
 ) {
-    req_children($children);  
+    req_children($children);
     rx = get_radius(r1=rx, r=r, d1=dx, d=d, dflt=1);
     ry = get_radius(r1=ry, r=r, d1=dy, d=d, dflt=1);
     sa = posmod(sa, 360);
     ea = posmod(ea, 360);
-    n = (abs(ea-sa)<0.01)?(n+1):n;
-    delt = (((ea<=sa)?360.0:0)+ea-sa)/(n-1);
+    extra_n = (abs(ea-sa)<0.01)?1:0;
+    delt = (((ea<=sa)?360.0:0)+ea-sa)/(n-1+extra_n);
     for ($idx = [0:1:n-1]) {
         $ang = sa + ($idx * delt);
         $pos =[rx*cos($ang), ry*sin($ang), 0];
@@ -1268,8 +1271,8 @@ function arc_copies(
         ry = get_radius(r1=ry, r=r, d1=dy, d=d, dflt=1),
         sa = posmod(sa, 360),
         ea = posmod(ea, 360),
-        n = (abs(ea-sa)<0.01)?(n+1):n,
-        delt = (((ea<=sa)?360.0:0)+ea-sa)/(n-1),
+        extra_n = (abs(ea-sa)<0.01)?1:0,
+        delt = (((ea<=sa)?360.0:0)+ea-sa)/(n-1+extra_n),
         mats = [
             for (i = [0:1:n-1])
             let(
@@ -1822,8 +1825,16 @@ module mirror_copy(v=[0,0,1], offset=0, cp)
             children();
         }
     } else {
-        translate(off) children();
-        translate(cp) mirror(nv) translate(-cp) translate(off) children();
+        translate(off) {
+            $orig = true;
+            $idx = 0;
+            children();
+        }
+        translate(cp) mirror(nv) translate(-cp) translate(off) {
+            $orig = false;
+            $idx = 1;
+            children();
+        }
     }
 }
 

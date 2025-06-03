@@ -16,6 +16,7 @@ include <distributors.scad>
 include <miscellaneous.scad>
 include <color.scad>
 include <attachments.scad>
+include <beziers.scad>
 include <shapes3d.scad>
 include <shapes2d.scad>
 include <drawing.scad>
@@ -33,8 +34,10 @@ include <coords.scad>
 include <geometry.scad>
 include <regions.scad>
 include <strings.scad>
-include <skin.scad>
 include <vnf.scad>
+include <structs.scad>
+include <rounding.scad>
+include <skin.scad>
 include <utility.scad>
 include <partitions.scad>
 
